@@ -4,6 +4,9 @@ Python-based autosampler to create SFZ multisample libraries from hardware synth
 
 A cross-platform program that samples hardware synthesizers by sending MIDI notes (and optionally CC and SysEx messages) to a hardware device, captures the audio, and creates an SFZ multisample.
 
+This is the initial commit and development just started. 
+things are probably not fully working.
+
 ## Features
 
 ### Audio Configuration
