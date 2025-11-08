@@ -1,0 +1,84 @@
+# AutosamplerT Script YAML Template
+# All options can be set here or via CLI
+
+audio_interface:
+  input_device_index: 0
+  output_device_index: 3
+  samplerate: 44100
+  bitdepth: 24
+  mono_stereo: stereo
+  gain: 1.0
+  latency_compensation: 0.0
+  patch_normalize: true
+  sample_normalize: true
+  silence_detection: true
+  audio_inputs: 2
+  debug: true
+
+midi_interface:
+  midi_input_name: "MIDI IN"
+  midi_output_name: "MIDI OUT"
+  midi_latency_adjust: 0.0
+
+sampling_midi:
+  # Default MIDI settings (sent once at start of sampling)
+  midi_channels: [0]
+  program_change: null  # Set to 0-127 to send program change
+  cc_messages: {}  # e.g., {7: 127, 10: 64}
+  sysex_messages: []  # e.g., ["F0 43 10 7F 1C 00 00 00 01 F7"]
+  
+  # Note range and layers
+  note_range: {start: 36, end: 96, interval: 1}
+  velocity_layers: 3
+  roundrobin_layers: 2
+  
+  # Per-velocity-layer MIDI control (optional)
+  # If specified, these MIDI messages are sent before sampling each velocity layer
+  velocity_midi_control:
+    - velocity_layer: 0  # First velocity layer (softest)
+      midi_channel: 0
+      program_change: null
+      cc_messages: {11: 30}  # Example: Expression CC
+      sysex_messages: []
+    
+    - velocity_layer: 1  # Second velocity layer (medium)
+      midi_channel: 0
+      program_change: null
+      cc_messages: {11: 80}
+      sysex_messages: []
+    
+    - velocity_layer: 2  # Third velocity layer (loudest)
+      midi_channel: 0
+      program_change: null
+      cc_messages: {11: 127}
+      sysex_messages: []
+  
+  # Per-round-robin-layer MIDI control (optional)
+  # If specified, these MIDI messages are sent before sampling each round-robin variation
+  roundrobin_midi_control:
+    - roundrobin_layer: 0  # First round-robin
+      midi_channel: 0
+      program_change: 10
+      cc_messages: {7: 127, 10: 64}
+      sysex_messages: []
+    
+    - roundrobin_layer: 1  # Second round-robin
+      midi_channel: 0
+      program_change: 11
+      cc_messages: {7: 127, 10: 64}
+      sysex_messages: []
+
+sampling:
+  hold_time: 2.0
+  release_time: 1.0
+  pause_time: 0.5
+  sample_name: "MySample"
+  multisample_name: "MyMulti"
+  auto_looping: true
+  wav_meta: true
+  test_mode: false
+  script_mode: false
+  output_format: "sfz"
+  output_folder: "./output"
+  lowest_note: 0
+  highest_note: 127

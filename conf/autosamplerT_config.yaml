@@ -1,0 +1,8 @@
+audio_interface:
+  bitdepth: 24
+  input_device_index: 4
+  output_device_index: 2
+  samplerate: 44100
+midi_interface:
+  midi_input_name: MIDIIN2 (Electra Controller) 1
+  midi_output_name: Electra Controller 1

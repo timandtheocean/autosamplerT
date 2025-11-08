@@ -1,0 +1,111 @@
+# Combined Advanced Example
+# Uses BOTH velocity layers AND round-robin layers
+# Filter sweep per velocity + Different patches per round-robin
+
+audio_interface:
+  samplerate: 48000
+  bitdepth: 24
+  mono_stereo: stereo
+  gain: 1.0
+  latency_compensation: 0.0
+
+midi_interface:
+  midi_input_name: "MIDI IN"
+  midi_output_name: "MIDI OUT"
+  midi_latency_adjust: 0.0
+
+sampling_midi:
+  # Global setup (sent once at start)
+  cc_messages:
+    7: 125                        # Volume: Near maximum
+    93: 50                        # Chorus: Medium depth
+    91: 45                        # Reverb: Medium room
+  
+  # Sampling configuration
+  note_range: {start: 36, end: 72, interval: 1}   # C2 to C5
+  velocity_layers: 3              # 3 velocity layers
+  roundrobin_layers: 2            # 2 round-robin variations
+  
+  # Per-velocity-layer MIDI control
+  # Controls filter cutoff and expression per dynamic layer
+  velocity_midi_control:
+    - velocity_layer: 0           # Soft layer
+      midi_channel: 0
+      cc_messages:
+        74: 40                    # Filter: Closed (dark)
+        71: 40                    # Resonance: Low
+        11: 50                    # Expression: Soft
+    
+    - velocity_layer: 1           # Medium layer
+      midi_channel: 0
+      cc_messages:
+        74: 80                    # Filter: Half open
+        71: 60                    # Resonance: Medium
+        11: 90                    # Expression: Medium
+    
+    - velocity_layer: 2           # Loud layer
+      midi_channel: 0
+      cc_messages:
+        74: 127                   # Filter: Fully open (bright)
+        71: 80                    # Resonance: High
+        11: 127                   # Expression: Maximum
+  
+  # Per-round-robin-layer MIDI control
+  # Uses different patches and panning for variation
+  roundrobin_midi_control:
+    - roundrobin_layer: 0
+      midi_channel: 0
+      program_change: 10          # Bright synth patch
+      cc_messages:
+        10: 50                    # Pan: Slightly left
+        1: 30                     # Mod Wheel: Slight vibrato
+    
+    - roundrobin_layer: 1
+      midi_channel: 0
+      program_change: 11          # Warm synth patch
+      cc_messages:
+        10: 78                    # Pan: Slightly right
+        1: 40                     # Mod Wheel: More vibrato
+
+sampling:
+  hold_time: 2.5
+  release_time: 1.5
+  pause_time: 0.4
+  multisample_name: "AdvancedSynth_3vel_2rr"
+  output_format: "sfz"
+  output_folder: "./output"
+  lowest_note: 0
+  highest_note: 127
+
+# Usage:
+# python autosamplerT.py --script conf/examples/combined_advanced.yaml
+#
+# This creates: 3 velocity × 2 round-robin = 6 variations per note
+#
+# Execution flow for note C2 (MIDI 36):
+#
+# VELOCITY LAYER 0 (soft):
+#   - Set CC 74=40, 71=40, 11=50 (filter closed, soft)
+#   - RR 0: PC=10, CC 10=50, 1=30 → Sample C2_v32_rr0.wav (bright patch, left pan)
+#   - RR 1: PC=11, CC 10=78, 1=40 → Sample C2_v32_rr1.wav (warm patch, right pan)
+#
+# VELOCITY LAYER 1 (medium):
+#   - Set CC 74=80, 71=60, 11=90 (filter half, medium)
+#   - RR 0: PC=10, CC 10=50, 1=30 → Sample C2_v80_rr0.wav
+#   - RR 1: PC=11, CC 10=78, 1=40 → Sample C2_v80_rr1.wav
+#
+# VELOCITY LAYER 2 (loud):
+#   - Set CC 74=127, 71=80, 11=127 (filter open, loud)
+#   - RR 0: PC=10, CC 10=50, 1=30 → Sample C2_v127_rr0.wav
+#   - RR 1: PC=11, CC 10=78, 1=40 → Sample C2_v127_rr1.wav
+#
+# Result: Ultra-expressive, natural-sounding instrument with:
+# - Dynamic filter response (velocity)
+# - Timbral variation (round-robin patches)
+# - Stereo width variation (panning)
+# - Natural vibrato variation (mod wheel)
+#
+# Perfect for: Lead synths, Pads, Expressive performances
+#
+# Post-processing:
+# python autosamplerT.py --process "AdvancedSynth_3vel_2rr" --patch_normalize --auto_loop --crossfade_loop 20

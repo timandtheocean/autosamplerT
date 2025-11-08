@@ -1,0 +1,51 @@
+# Basic CC Message Example
+# Simple configuration showing how to send Program Change and CC messages before sampling
+
+audio_interface:
+  samplerate: 44100
+  bitdepth: 24
+  mono_stereo: stereo
+  gain: 1.0
+  latency_compensation: 0.0
+
+midi_interface:
+  midi_input_name: "MIDI IN"
+  midi_output_name: "MIDI OUT"
+  midi_latency_adjust: 0.0
+
+sampling_midi:
+  # Global MIDI settings (sent once at start of sampling)
+  program_change: 10              # Select synth program/patch 10
+  cc_messages:
+    7: 127                        # Volume: Maximum
+    10: 64                        # Pan: Center
+    74: 80                        # Filter Cutoff: Half open
+    71: 64                        # Resonance: Medium
+    91: 40                        # Reverb Depth: Medium
+  
+  # Sampling settings
+  note_range: {start: 36, end: 96, interval: 1}   # C2 to C7, chromatic
+  velocity_layers: 1              # Single velocity layer
+  roundrobin_layers: 1            # No round-robin
+
+sampling:
+  hold_time: 2.0
+  release_time: 1.0
+  pause_time: 0.5
+  multisample_name: "BasicSynth"
+  output_format: "sfz"
+  output_folder: "./output"
+  lowest_note: 0
+  highest_note: 127
+
+# Usage:
+# python autosamplerT.py --script conf/examples/basic_cc.yaml
+#
+# This will:
+# 1. Send Program Change 10
+# 2. Send CC 7=127 (Volume)
+# 3. Send CC 10=64 (Pan center)
+# 4. Send CC 74=80 (Filter half open)
+# 5. Send CC 71=64 (Resonance medium)
+# 6. Send CC 91=40 (Reverb)
+# 7. Sample all notes C2-C7

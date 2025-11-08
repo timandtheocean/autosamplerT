@@ -1,0 +1,86 @@
+# Velocity Filter Sweep Example
+# Sample 4 velocity layers with different filter cutoff values
+# Creates dynamic, expressive velocity response
+
+audio_interface:
+  samplerate: 48000
+  bitdepth: 24
+  mono_stereo: stereo
+  gain: 1.0
+  latency_compensation: 0.0
+
+midi_interface:
+  midi_input_name: "MIDI IN"
+  midi_output_name: "MIDI OUT"
+  midi_latency_adjust: 0.0
+
+sampling_midi:
+  # Global setup
+  program_change: 8               # Select your synth's pad/lead patch
+  cc_messages:
+    7: 120                        # Volume: Slightly below max
+    10: 64                        # Pan: Center
+    93: 30                        # Chorus: Subtle
+  
+  # Sampling configuration
+  note_range: {start: 36, end: 84, interval: 1}   # C2 to C6
+  velocity_layers: 4              # 4 velocity layers
+  roundrobin_layers: 1            # No round-robin
+  
+  # Per-velocity-layer MIDI control
+  # Each layer gets different filter and expression settings
+  velocity_midi_control:
+    - velocity_layer: 0           # Softest layer (ppp)
+      midi_channel: 0
+      cc_messages:
+        74: 20                    # Filter Cutoff: Very closed (dark sound)
+        71: 30                    # Resonance: Low
+        11: 40                    # Expression: Soft
+        1: 0                      # Mod Wheel: Off
+    
+    - velocity_layer: 1           # Medium-soft layer (mp)
+      midi_channel: 0
+      cc_messages:
+        74: 60                    # Filter Cutoff: Half open
+        71: 50                    # Resonance: Medium
+        11: 70                    # Expression: Medium
+        1: 30                     # Mod Wheel: Slight
+    
+    - velocity_layer: 2           # Medium-loud layer (mf)
+      midi_channel: 0
+      cc_messages:
+        74: 100                   # Filter Cutoff: Mostly open (bright)
+        71: 70                    # Resonance: Higher
+        11: 100                   # Expression: Strong
+        1: 60                     # Mod Wheel: Medium
+    
+    - velocity_layer: 3           # Loudest layer (fff)
+      midi_channel: 0
+      cc_messages:
+        74: 127                   # Filter Cutoff: Fully open (brightest)
+        71: 90                    # Resonance: Maximum
+        11: 127                   # Expression: Maximum
+        1: 127                    # Mod Wheel: Full
+
+sampling:
+  hold_time: 2.5
+  release_time: 1.5
+  pause_time: 0.3
+  multisample_name: "FilterSweepPad"
+  output_format: "sfz"
+  output_folder: "./output"
+  lowest_note: 0
+  highest_note: 127
+
+# Usage:
+# python autosamplerT.py --script conf/examples/velocity_filter_sweep.yaml
+#
+# This creates a 4-layer velocity instrument where:
+# - Soft notes = dark, mellow sound (closed filter)
+# - Medium notes = balanced brightness
+# - Loud notes = bright, aggressive sound (open filter)
+#
+# Perfect for: Pads, Leads, Brass, Expressive synths
+#
+# Post-processing recommendation:
+# python autosamplerT.py --process "FilterSweepPad" --patch_normalize --trim_silence
