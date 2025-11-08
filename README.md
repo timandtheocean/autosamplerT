@@ -89,6 +89,7 @@ View category-specific help:
 python autosamplerT.py --help audio
 python autosamplerT.py --help midi
 python autosamplerT.py --help sampling
+python autosamplerT.py --help postprocessing
 ```
 
 #### Audio Options Examples
@@ -134,6 +135,28 @@ python autosamplerT.py --test_mode
 
 # Set round-robin layers
 python autosamplerT.py --roundrobin_layers 3
+```
+
+#### Postprocessing Options Examples
+
+```bash
+# Process existing multisample by name
+python autosamplerT.py --process "MySynth" --patch_normalize --trim_silence
+
+# Process samples in a specific folder
+python autosamplerT.py --process_folder ./output/MySynth --sample_normalize --auto_loop
+
+# Normalize and trim with backup
+python autosamplerT.py --process "MySynth" --patch_normalize --trim_silence --backup
+
+# Auto-loop with crossfade
+python autosamplerT.py --process "MySynth" --auto_loop --crossfade_loop 50
+
+# Convert bit depth with dithering
+python autosamplerT.py --process "MySynth" --convert_bitdepth 16 --dither
+
+# Full post-processing chain
+python autosamplerT.py --process "MySynth" --dc_offset_removal --trim_silence --patch_normalize --auto_loop --crossfade_loop 30 --backup
 ```
 
 ### 4. Configuration Files
