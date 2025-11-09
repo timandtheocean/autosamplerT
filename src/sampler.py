@@ -67,7 +67,9 @@ class AutoSampler:
         # Audio settings
         self.samplerate = self.audio_config.get('samplerate', 44100)
         self.bitdepth = self.audio_config.get('bitdepth', 24)
-        self.channels = 2 if self.audio_config.get('mono_stereo', 'stereo') == 'stereo' else 1
+        self.mono_stereo = self.audio_config.get('mono_stereo', 'stereo')
+        self.channels = 2 if self.mono_stereo == 'stereo' else 1
+        self.mono_channel = self.audio_config.get('mono_channel', 0)  # 0=left, 1=right
         self.input_device = self.audio_config.get('input_device_index')
         self.output_device = self.audio_config.get('output_device_index')
         
@@ -161,7 +163,11 @@ class AutoSampler:
                 return False
             
             logging.info(f"Bit depth: {self.bitdepth} bits")
-            logging.info(f"Channels: {self.channels} ({'stereo' if self.channels == 2 else 'mono'})")
+            if self.channels == 2:
+                logging.info(f"Channels: 2 (stereo)")
+            else:
+                channel_name = 'left' if self.mono_channel == 0 else 'right'
+                logging.info(f"Channels: 1 (mono, using {channel_name} channel)")
             
             return True
         except Exception as e:
@@ -212,7 +218,8 @@ class AutoSampler:
             NumPy array of recorded audio samples, or None if recording failed
         """
         if self.test_mode:
-            logging.info(f"[TEST MODE] Recording {duration}s of silent audio")
+            channel_info = 'stereo' if self.mono_stereo == 'stereo' else f"mono ({['left', 'right'][self.mono_channel]})"
+            logging.info(f"[TEST MODE] Recording {duration}s of silent audio ({channel_info})")
             # Create silent audio with correct shape
             num_samples = int(duration * self.samplerate)
             silent_audio = np.zeros((num_samples, self.channels), dtype='float32')
@@ -221,14 +228,24 @@ class AutoSampler:
         try:
             logging.debug(f"Recording {duration}s at {self.samplerate}Hz, {self.channels} channels")
             
+            # Always record in stereo if input has multiple channels
+            # For mono output, we'll select the desired channel afterwards
+            record_channels = 2 if self.mono_stereo == 'mono' else self.channels
+            
             # Record audio
             recording = sd.rec(
                 int(duration * self.samplerate),
                 samplerate=self.samplerate,
-                channels=self.channels,
+                channels=record_channels,
                 dtype='float32'
             )
             sd.wait()  # Wait until recording is finished
+            
+            # If mono output is requested, extract the specified channel
+            if self.mono_stereo == 'mono' and record_channels == 2:
+                channel_name = 'left' if self.mono_channel == 0 else 'right'
+                recording = recording[:, self.mono_channel:self.mono_channel+1]
+                logging.debug(f"Extracted {channel_name} channel for mono recording")
             
             # Apply gain
             if self.gain != 1.0:

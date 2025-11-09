@@ -101,6 +101,12 @@ python autosamplerT.py --help postprocessing
 # Set sample rate and bit depth
 python autosamplerT.py --samplerate 96000 --bitdepth 24
 
+# Record in mono using left channel
+python autosamplerT.py --mono_stereo mono --mono_channel 0
+
+# Record in mono using right channel
+python autosamplerT.py --mono_stereo mono --mono_channel 1
+
 # Enable normalization and silence detection
 python autosamplerT.py --patch_normalize --silence_detection
 
@@ -234,9 +240,9 @@ After sampling, you'll find:
 
 ## Platform Support
 
-- ✅ Windows
-- ✅ Linux  
-- ✅ macOS
+- Windows
+- Linux  
+- macOS
 
 ## Troubleshooting
 
