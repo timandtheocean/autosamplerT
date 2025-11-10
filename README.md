@@ -45,10 +45,11 @@ things are probably not fully working.
 - Auto-loop detection: find and set loop points using autocorrelation algorithm
   - Zero-crossing detection for smooth, click-free loop points
   - Automatic loop detection or manual start/end time specification
-  - Configurable minimum loop duration
+  - Configurable minimum loop duration (percentage or seconds: `55%` or `8.5`)
 - Crossfade looping: create smooth loop transitions with equal-power crossfade
 - Bit depth conversion: convert between 16/24/32-bit with optional dithering
 - Backup creation: automatically backup samples before processing
+- Debug mode: optional JSON sidecar files for detailed metadata (disabled by default)
 
 ## Installation
 
@@ -198,6 +199,7 @@ python autosamplerT.py --roundrobin_layers 3
 - **Patch normalize** (`--patch_normalize`): Analyzes all samples in the multisample to find the loudest peak, then applies the same gain to ALL samples so they have consistent relative levels. Use this to maintain the natural dynamics between soft and loud samples.
 - **Sample normalize** (`--sample_normalize`): Normalizes each sample independently to its maximum volume. This destroys the relative dynamics but ensures every sample is as loud as possible. Use for drum kits or when dynamics don't matter.
 
+**Basic Postprocessing:**
 ```bash
 # Patch normalize: maintain relative dynamics between samples
 python autosamplerT.py --process "MySynth" --patch_normalize --trim_silence
@@ -211,20 +213,55 @@ python autosamplerT.py --process_folder ./output/MySynth --patch_normalize --aut
 # Normalize and trim with backup (recommended for safety)
 python autosamplerT.py --process "MySynth" --patch_normalize --trim_silence --backup
 
-# Auto-loop: automatic detection with zero-crossing alignment
-python autosamplerT.py --process "MySynth" --auto_loop --loop_min_duration 0.5
+# Remove DC offset (recommended for all recordings)
+python autosamplerT.py --process "MySynth" --dc_offset_removal
+```
 
-# Auto-loop with crossfade for sustained sounds (equal-power crossfade)
-python autosamplerT.py --process "MySynth" --auto_loop --crossfade_loop 50
+**Auto-Loop Detection:**
 
-# Auto-loop with manual start/end times (seconds)
+AutosamplerT uses advanced autocorrelation analysis with zero-crossing detection to find perfect loop points.
+
+```bash
+# Auto-loop with percentage-based minimum duration (55% of sample length)
+python autosamplerT.py --process "MySynth" --auto_loop --loop_min_duration 55%
+
+# Auto-loop with absolute minimum duration (8.5 seconds)
+python autosamplerT.py --process "MySynth" --auto_loop --loop_min_duration 8.5
+
+# Auto-loop with crossfade for smooth, click-free loops (30ms equal-power crossfade)
+python autosamplerT.py --process "MySynth" --auto_loop --loop_min_duration 50% --crossfade_loop 30
+
+# Auto-loop with manual start/end times (for precise control)
 python autosamplerT.py --process "MySynth" --auto_loop --loop_start_time 1.5 --loop_end_time 3.2 --crossfade_loop 30
+```
 
-# Convert bit depth with dithering
+**Bit Depth Conversion:**
+```bash
+# Convert to 16-bit for OP-1/tape machines
 python autosamplerT.py --process "MySynth" --convert_bitdepth 16 --dither
 
-# Full post-processing chain
-python autosamplerT.py --process "MySynth" --dc_offset_removal --trim_silence --patch_normalize --auto_loop --crossfade_loop 30 --backup
+# Convert to 24-bit without dithering
+python autosamplerT.py --process "MySynth" --convert_bitdepth 24
+```
+
+**Complete Postprocessing Chain Examples:**
+```bash
+# Standard workflow: clean, normalize, loop
+python autosamplerT.py --process "MySynth" \
+  --dc_offset_removal \
+  --trim_silence \
+  --patch_normalize \
+  --auto_loop --loop_min_duration 50% --crossfade_loop 30 \
+  --backup
+
+# Aggressive processing for maximum quality
+python autosamplerT.py --process "MySynth" \
+  --dc_offset_removal \
+  --trim_silence \
+  --patch_normalize \
+  --auto_loop --loop_min_duration 8.0 --crossfade_loop 50 \
+  --convert_bitdepth 16 --dither \
+  --backup
 ```
 
 ### 4. Configuration Files
@@ -383,6 +420,118 @@ The test suite will:
 - Check WAV metadata format
 - Display pass/fail status for each test
 - Print summary with timing information
+
+## Complete Workflow Examples
+
+### Production Sampling: Analog Synth with Auto-Looping
+
+This example shows a complete workflow for sampling an analog synthesizer with automatic loop detection.
+
+**Step 1: Sample the instrument (12 second hold, 2 notes per octave, C2 to C6)**
+```bash
+python autosamplerT.py --name "op1-pipedream" \
+  --note_range 36 84 \
+  --interval 6 \
+  --hold_time 12.0 \
+  --release_time 3.0
+```
+
+Output: 9 samples recorded (C2, F#2, C3, F#3, C4, F#4, C5, F#5, C6)
+
+**Step 2: Postprocess with percentage-based auto-looping (55% minimum loop)**
+```bash
+python autosamplerT.py --process "op1-pipedream" \
+  --dc_offset_removal \
+  --trim_silence \
+  --patch_normalize \
+  --auto_loop --loop_min_duration 55% --crossfade_loop 30
+```
+
+This will:
+- Remove DC offset from recordings
+- Trim silence from start/end (typically ~1 second)
+- Normalize all samples together to maintain relative dynamics
+- Find loop points for each sample (minimum 55% of trimmed sample length)
+- Apply 30ms equal-power crossfade at loop points
+- Embed loop points in WAV 'smpl' chunk for sampler compatibility
+
+**Expected Results:**
+- Sample duration after trimming: ~14.8 seconds
+- Minimum loop duration (55%): ~8.1 seconds
+- Detected loop duration: ~11.8 seconds (exceeds minimum, perfect!)
+- Loop points stored in WAV RIFF headers, no JSON files created
+
+### Debug Mode: Enabling JSON Sidecar Files
+
+By default, autosamplerT stores all metadata in WAV RIFF chunks ('note' and 'smpl'). To create JSON sidecar files with detailed metadata, enable debug mode in your config:
+
+**conf/autosamplerT_config.yaml:**
+```yaml
+audio:
+  debug: true  # Creates JSON files with detailed metadata
+```
+
+**With debug disabled (default):**
+```bash
+output/MySynth/samples/
+  MySynth_036_v127.wav  # Contains note and loop metadata in RIFF chunks
+  MySynth_042_v127.wav
+  MySynth_048_v127.wav
+```
+
+**With debug enabled:**
+```bash
+output/MySynth/samples/
+  MySynth_036_v127.wav   # WAV file with RIFF metadata
+  MySynth_036_v127.json  # JSON with human-readable metadata
+  MySynth_042_v127.wav
+  MySynth_042_v127.json
+```
+
+JSON files are useful for debugging but unnecessary for production since samplers read WAV RIFF chunks directly.
+
+### Percentage vs. Absolute Loop Duration
+
+The `--loop_min_duration` parameter accepts both percentage and absolute time values:
+
+**Percentage syntax (recommended for variable-length samples):**
+```bash
+# 55% of each sample's duration (adapts to different sample lengths)
+python autosamplerT.py --process "MySynth" --auto_loop --loop_min_duration 55%
+
+# 80% of each sample's duration (very long loops)
+python autosamplerT.py --process "MySynth" --auto_loop --loop_min_duration 80%
+```
+
+**Absolute syntax (seconds):**
+```bash
+# Exactly 8.5 seconds minimum loop (same for all samples)
+python autosamplerT.py --process "MySynth" --auto_loop --loop_min_duration 8.5
+
+# Short 2 second minimum loop
+python autosamplerT.py --process "MySynth" --auto_loop --loop_min_duration 2.0
+```
+
+**Validation behavior:**
+If the requested loop duration exceeds the sample length, autosamplerT automatically falls back to 80% of the sample duration with a warning:
+```
+[WARNING] Requested loop duration (12.000s) exceeds sample length (10.5s) for MySynth_036_v127.wav
+Using 80% of sample duration: 8.4s
+```
+
+### Advanced: Manual Loop Points with Crossfade
+
+For precise control over loop points (e.g., syncing to musical phrases):
+
+```bash
+python autosamplerT.py --process "MySynth" \
+  --auto_loop \
+  --loop_start_time 1.5 \
+  --loop_end_time 8.2 \
+  --crossfade_loop 50
+```
+
+This creates a loop from 1.5 to 8.2 seconds with a 50ms crossfade, ignoring autocorrelation analysis.
 
 ## Troubleshooting
 
