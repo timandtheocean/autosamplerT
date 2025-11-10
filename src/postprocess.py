@@ -91,9 +91,27 @@ class PostProcessor:
                 
                 # Auto-looping
                 if operations.get('auto_loop'):
-                    min_duration = operations.get('loop_min_duration', 0.1)
+                    min_duration_param = operations.get('loop_min_duration', 0.1)
                     start_time = operations.get('loop_start_time')
                     end_time = operations.get('loop_end_time')
+                    
+                    # Calculate sample duration
+                    sample_duration = len(audio_data) / samplerate
+                    
+                    # Parse min_duration: support percentage (e.g., "55%") or seconds (e.g., 8.25)
+                    if isinstance(min_duration_param, str) and min_duration_param.endswith('%'):
+                        # Percentage of sample duration
+                        percentage = float(min_duration_param.rstrip('%'))
+                        min_duration = (percentage / 100.0) * sample_duration
+                    else:
+                        # Absolute duration in seconds
+                        min_duration = float(min_duration_param)
+                    
+                    # Validate min_duration doesn't exceed sample length
+                    if min_duration > sample_duration:
+                        print(f"  [WARNING] Requested loop duration ({min_duration:.3f}s) exceeds sample length ({sample_duration:.3f}s)")
+                        min_duration = sample_duration * 0.8  # Use 80% of sample as fallback
+                        print(f"  [WARNING] Using {min_duration:.3f}s ({min_duration/sample_duration*100:.1f}%) instead")
                     
                     loop_points = self._find_loop_points(
                         audio_data, samplerate, 

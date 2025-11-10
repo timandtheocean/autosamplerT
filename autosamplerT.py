@@ -104,8 +104,10 @@ def get_arg_parser():
                      help='SysEx messages (space-separated hex strings)')
     midi.add_argument('--program_change', type=int, metavar='PC',
                      help='Program change number (0-127)')
-    midi.add_argument('--cc_messages', type=str, metavar='JSON',
-                     help='CC messages as JSON (e.g., {"7":127,"10":64})')
+    midi.add_argument('--cc_messages', type=str, metavar='CC_LIST',
+                     help='7-bit CC messages (e.g., "7,127;10,64" for CC7=127, CC10=64)')
+    midi.add_argument('--cc14_messages', type=str, metavar='CC14_LIST',
+                     help='14-bit CC messages (e.g., "1,8192;11,16383" for CC1=8192, CC11=16383)')
     midi.add_argument('--note_range_start', type=str, metavar='NOTE',
                      help='Starting note (MIDI number 0-127 or note name like C2, A#4)')
     midi.add_argument('--note_range_end', type=str, metavar='NOTE',
@@ -162,8 +164,8 @@ def get_arg_parser():
                                help='Trim silence from start/end of samples')
     postprocessing.add_argument('--auto_loop', action='store_true',
                                help='Find and set loop points using autocorrelation with zero-crossing detection')
-    postprocessing.add_argument('--loop_min_duration', type=float, metavar='SECONDS',
-                               help='Minimum loop duration in seconds (default: 0.1)')
+    postprocessing.add_argument('--loop_min_duration', type=str, metavar='DURATION',
+                               help='Minimum loop duration: percentage (e.g., "55%%") or seconds (e.g., "8.25"). Default: 0.1')
     postprocessing.add_argument('--loop_start_time', type=float, metavar='SECONDS',
                                help='Fixed loop start time in seconds (optional)')
     postprocessing.add_argument('--loop_end_time', type=float, metavar='SECONDS',
@@ -340,6 +342,7 @@ def main():
         'sysex_messages': args.sysex_messages,
         'program_change': args.program_change,
         'cc_messages': args.cc_messages,
+        'cc14_messages': args.cc14_messages,
         'note_range': note_range_dict,
         'velocity_minimum': args.velocity_minimum,
         'velocity_layers_split': velocity_splits,
@@ -419,7 +422,7 @@ def main():
                 'sample_normalize': args.sample_normalize,
                 'trim_silence': args.trim_silence,
                 'auto_loop': args.auto_loop,
-                'loop_min_duration': args.loop_min_duration if args.loop_min_duration else 0.1,
+                'loop_min_duration': args.loop_min_duration if args.loop_min_duration else "0.1",
                 'loop_start_time': args.loop_start_time,
                 'loop_end_time': args.loop_end_time,
                 'crossfade_loop': args.crossfade_loop,

@@ -30,7 +30,7 @@ from scipy.io import wavfile
 import struct
 
 # MIDI Control module
-from src.sampler_midicontrol import MIDIController, parse_cc_messages, parse_sysex_messages
+from src.sampler_midicontrol import MIDIController, parse_cc_messages, parse_cc14_messages, parse_sysex_messages
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 
@@ -444,8 +444,8 @@ class AutoSampler:
             
             logging.debug(f"RIFF metadata added: note={metadata.get('note')}, vel={metadata.get('velocity')}")
             
-            # Also write sidecar JSON for easy reading
-            if self.sampling_config.get('wav_meta', True):
+            # Also write sidecar JSON only if debug mode is enabled
+            if self.audio_config.get('debug', False):
                 meta_path = filepath.with_suffix('.json')
                 with open(meta_path, 'w') as f:
                     json.dump(metadata, f, indent=2)

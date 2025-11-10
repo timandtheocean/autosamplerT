@@ -25,7 +25,7 @@ class MIDIController:
     
     def send_midi_cc(self, cc_number: int, value: int, channel: int = 0) -> None:
         """
-        Send a MIDI Control Change message.
+        Send a 7-bit MIDI Control Change message.
         
         Args:
             cc_number: CC number (0-127)
@@ -42,6 +42,40 @@ class MIDIController:
             logging.debug(f"MIDI CC: cc={cc_number}, value={value}, channel={channel}")
         except Exception as e:
             logging.error(f"Failed to send MIDI CC: {e}")
+    
+    def send_midi_cc14(self, cc_number: int, value: int, channel: int = 0) -> None:
+        """
+        Send a 14-bit MIDI Control Change message.
+        
+        14-bit CC messages use two consecutive controllers:
+        - MSB (Most Significant Byte): CC number (0-31)
+        - LSB (Least Significant Byte): CC number + 32 (32-63)
+        
+        Args:
+            cc_number: CC number (0-31, for MSB controller)
+            value: CC value (0-16383, 14-bit)
+            channel: MIDI channel (0-15)
+        """
+        if not self.midi_output_port or self.test_mode:
+            logging.info(f"[TEST MODE] MIDI CC14: cc={cc_number}, value={value} (14-bit), channel={channel}")
+            return
+        
+        try:
+            # Split 14-bit value into MSB (bits 7-13) and LSB (bits 0-6)
+            msb = (value >> 7) & 0x7F  # Upper 7 bits
+            lsb = value & 0x7F          # Lower 7 bits
+            
+            # Send MSB first
+            msb_msg = mido.Message('control_change', control=cc_number, value=msb, channel=channel)
+            self.midi_output_port.send(msb_msg)
+            
+            # Send LSB second (CC number + 32)
+            lsb_msg = mido.Message('control_change', control=cc_number + 32, value=lsb, channel=channel)
+            self.midi_output_port.send(lsb_msg)
+            
+            logging.debug(f"MIDI CC14: cc={cc_number} (MSB={msb}, LSB={lsb}), value={value} (14-bit), channel={channel}")
+        except Exception as e:
+            logging.error(f"Failed to send 14-bit MIDI CC: {e}")
     
     def send_program_change(self, program: int, channel: int = 0) -> None:
         """
@@ -100,15 +134,27 @@ class MIDIController:
     
     def send_cc_messages(self, cc_dict: Dict[int, int], channel: int = 0) -> None:
         """
-        Send multiple CC messages from a dictionary.
+        Send multiple 7-bit CC messages from a dictionary.
         
         Args:
-            cc_dict: Dictionary of {cc_number: value}
+            cc_dict: Dictionary of {cc_number: value} where values are 0-127
             channel: MIDI channel (0-15)
         """
         for cc_num, cc_val in cc_dict.items():
             self.send_midi_cc(int(cc_num), int(cc_val), channel)
             time.sleep(0.01)  # Small delay between messages
+    
+    def send_cc14_messages(self, cc14_dict: Dict[int, int], channel: int = 0) -> None:
+        """
+        Send multiple 14-bit CC messages from a dictionary.
+        
+        Args:
+            cc14_dict: Dictionary of {cc_number: value} where values are 0-16383
+            channel: MIDI channel (0-15)
+        """
+        for cc_num, cc_val in cc14_dict.items():
+            self.send_midi_cc14(int(cc_num), int(cc_val), channel)
+            time.sleep(0.02)  # Slightly longer delay for 14-bit (sends 2 messages)
     
     def send_sysex_messages(self, sysex_list: List[str], channel: int = 0) -> None:
         """
@@ -125,11 +171,12 @@ class MIDIController:
     
     def send_midi_setup(self, config: Dict, channel: int = 0) -> None:
         """
-        Send initial MIDI setup messages (CC, Program Change, SysEx).
+        Send initial MIDI setup messages (CC, 14-bit CC, Program Change, SysEx).
         
         Args:
             config: Configuration dictionary with optional keys:
-                   'cc_messages': Dict of CC messages
+                   'cc_messages': Dict of 7-bit CC messages
+                   'cc14_messages': Dict of 14-bit CC messages
                    'program_change': Program number
                    'sysex_messages': List of SysEx strings
             channel: MIDI channel (0-15)
@@ -139,10 +186,15 @@ class MIDIController:
         if sysex_messages:
             self.send_sysex_messages(sysex_messages, channel)
         
-        # Send CC messages
+        # Send 7-bit CC messages
         cc_messages = config.get('cc_messages', {})
         if cc_messages:
             self.send_cc_messages(cc_messages, channel)
+        
+        # Send 14-bit CC messages
+        cc14_messages = config.get('cc14_messages', {})
+        if cc14_messages:
+            self.send_cc14_messages(cc14_messages, channel)
         
         # Send Program Change
         program = config.get('program_change')
@@ -272,16 +324,16 @@ class MIDIController:
 
 def parse_cc_messages(cc_input) -> Dict[int, int]:
     """
-    Parse CC messages from various input formats.
+    Parse 7-bit CC messages from various input formats.
     
     Args:
         cc_input: Can be:
                  - Dict: {7: 127, 10: 64}
-                 - JSON string: '{"7":127,"10":64}'
+                 - String: "7,127;10,64" (controller,value pairs separated by semicolon)
                  - None or empty
     
     Returns:
-        Dictionary of {cc_number: value}
+        Dictionary of {cc_number: value} where values are 0-127
     """
     if not cc_input:
         return {}
@@ -290,12 +342,91 @@ def parse_cc_messages(cc_input) -> Dict[int, int]:
         return {int(k): int(v) for k, v in cc_input.items()}
     
     if isinstance(cc_input, str):
-        import json
         try:
-            parsed = json.loads(cc_input)
-            return {int(k): int(v) for k, v in parsed.items()}
-        except (json.JSONDecodeError, ValueError) as e:
+            # Parse format: "7,127;10,64" -> {7: 127, 10: 64}
+            result = {}
+            pairs = cc_input.split(';')
+            for pair in pairs:
+                pair = pair.strip()
+                if not pair:
+                    continue
+                parts = pair.split(',')
+                if len(parts) != 2:
+                    logging.error(f"Invalid CC message format: '{pair}' (expected 'controller,value')")
+                    continue
+                cc_num = int(parts[0].strip())
+                cc_val = int(parts[1].strip())
+                
+                # Validate 7-bit ranges
+                if not (0 <= cc_num <= 127):
+                    logging.error(f"CC controller number {cc_num} out of range (0-127)")
+                    continue
+                if not (0 <= cc_val <= 127):
+                    logging.error(f"CC value {cc_val} out of range (0-127)")
+                    continue
+                    
+                result[cc_num] = cc_val
+            return result
+        except (ValueError, AttributeError) as e:
             logging.error(f"Failed to parse CC messages: {e}")
+            return {}
+    
+    return {}
+
+
+def parse_cc14_messages(cc14_input) -> Dict[int, int]:
+    """
+    Parse 14-bit CC messages from various input formats.
+    
+    Args:
+        cc14_input: Can be:
+                   - Dict: {1: 8192, 11: 16383}
+                   - String: "1,8192;11,16383" (controller,value pairs separated by semicolon)
+                   - None or empty
+    
+    Returns:
+        Dictionary of {cc_number: value} where values are 0-16383 (14-bit)
+        
+    Note:
+        14-bit CC uses two consecutive controllers:
+        - MSB (Most Significant Byte): CC number (e.g., CC1)
+        - LSB (Least Significant Byte): CC number + 32 (e.g., CC33)
+        The function will automatically split the 14-bit value into MSB/LSB.
+    """
+    if not cc14_input:
+        return {}
+    
+    if isinstance(cc14_input, dict):
+        return {int(k): int(v) for k, v in cc14_input.items()}
+    
+    if isinstance(cc14_input, str):
+        try:
+            # Parse format: "1,8192;11,16383" -> {1: 8192, 11: 16383}
+            result = {}
+            pairs = cc14_input.split(';')
+            for pair in pairs:
+                pair = pair.strip()
+                if not pair:
+                    continue
+                parts = pair.split(',')
+                if len(parts) != 2:
+                    logging.error(f"Invalid 14-bit CC message format: '{pair}' (expected 'controller,value')")
+                    continue
+                cc_num = int(parts[0].strip())
+                cc_val = int(parts[1].strip())
+                
+                # Validate 14-bit ranges
+                if not (0 <= cc_num <= 31):
+                    logging.error(f"14-bit CC controller number {cc_num} out of range (0-31)")
+                    continue
+                if not (0 <= cc_val <= 16383):
+                    logging.error(f"14-bit CC value {cc_val} out of range (0-16383)")
+                    continue
+                    
+                result[cc_num] = cc_val
+            return result
+        except (ValueError, AttributeError) as e:
+            logging.error(f"Failed to parse 14-bit CC messages: {e}")
             return {}
     
     return {}
