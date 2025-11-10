@@ -93,6 +93,25 @@ python autosamplerT.py --script conf/autosamplerT_script.yaml
 
 ### 3. Command-Line Options
 
+**Important: CLI vs Script Syntax Differences**
+
+When using command-line arguments, note range uses **three separate flags**:
+```bash
+# CLI syntax (three separate flags)
+python autosamplerT.py --note_range_start 36 --note_range_end 96 --note_range_interval 1
+```
+
+When using script files (YAML), note range uses a **dict with start/end/interval keys**:
+```yaml
+# Script syntax (dict format)
+sampling_midi:
+  note_range: {start: 36, end: 96, interval: 1}
+```
+
+The same applies to velocity layer splits:
+- **CLI**: `--velocity_layers_split 50,90` (comma-separated string)
+- **Script**: `velocity_layers_split: [50, 90]` or `velocity_layers_split: null` (YAML list or null)
+
 View all options:
 ```bash
 python autosamplerT.py --help
@@ -288,24 +307,65 @@ Full sampling script with all parameters:
 
 ```yaml
 audio_interface:
-  samplerate: 96000
-  bitdepth: 24
-  gain: 1.0
-  silence_detection: true
-  sample_normalize: true
+  input_device_index: 0            # Audio input device
+  output_device_index: 3           # Audio output device (for monitoring)
+  samplerate: 96000                # 44100, 48000, 96000
+  bitdepth: 24                     # 16, 24, 32
+  mono_stereo: stereo              # mono or stereo
+  gain: 1.0                        # Input gain multiplier
+  latency_compensation: 0.0        # Latency compensation in milliseconds
+  audio_inputs: 2                  # Number of input channels
+  debug: false                     # Enable JSON sidecar files
 
 midi_interface:
-  program_change: 10
-  note_range: {start: 36, end: 96, interval: 1}
-  velocity_layers: 4
+  midi_input_name: "MIDI IN"       # MIDI input device name
+  midi_output_name: "MIDI OUT"     # MIDI output device name
+  midi_latency_adjust: 0.0         # MIDI latency adjustment in milliseconds
+
+sampling_midi:
+  # Default MIDI settings (sent once at start of sampling)
+  midi_channels: [0]               # MIDI channels to sample (0-15)
+  program_change: 10               # Program change 0-127, or null
+  cc_messages: {7: 127, 10: 64}    # CC messages: {controller: value}
+  sysex_messages: []               # SysEx messages as hex strings
   
+  # Note range and layers - use dict syntax
+  note_range: {start: 36, end: 96, interval: 1}  # C2 to C7, chromatic
+  velocity_layers: 4               # Number of velocity layers
+  velocity_minimum: 1              # Minimum velocity (1-127)
+  velocity_layers_split: null      # Custom splits: "50,90" or null for automatic
+  roundrobin_layers: 1             # Number of round-robin variations
+  
+  # Per-velocity-layer MIDI control (optional)
+  velocity_midi_control:
+    - velocity_layer: 0            # First velocity layer (softest)
+      midi_channel: 0
+      program_change: null
+      cc_messages: {74: 20}        # Example: Filter cutoff
+      sysex_messages: []
+    
+    - velocity_layer: 1            # Second velocity layer
+      midi_channel: 0
+      cc_messages: {74: 60}
+  
+  # Per-round-robin-layer MIDI control (optional)
+  roundrobin_midi_control:
+    - roundrobin_layer: 0          # First round-robin
+      midi_channel: 0
+      program_change: 10
+      cc_messages: {7: 127}
+
 sampling:
-  hold_time: 2.0
-  release_time: 1.0
-  pause_time: 0.5
-  multisample_name: "MyInstrument"
-  output_folder: "./output"
-  output_format: "sfz"
+  hold_time: 2.0                   # Note hold time in seconds
+  release_time: 1.0                # Release time in seconds
+  pause_time: 0.5                  # Pause between samples in seconds
+  sample_name: "MySample"          # Individual sample name prefix
+  multisample_name: "MyInstrument" # Multisample folder/SFZ name
+  test_mode: false                 # Quick test (only first note)
+  output_format: "sfz"             # Output format: sfz, soundfont, kontakt
+  output_folder: "./output"        # Output directory
+  lowest_note: 0                   # SFZ lowest note mapping
+  highest_note: 127                # SFZ highest note mapping
 ```
 
 ## Sample Naming Convention
@@ -325,7 +385,9 @@ Examples:
 After sampling, you'll find:
 - Individual WAV files for each sample
 - SFZ mapping file (`{multisample_name}.sfz`)
-- JSON metadata files (if `wav_meta` enabled)
+- JSON metadata files (only if `debug: true` in config)
+
+**Note:** MIDI metadata (note, velocity, channel) and loop points are stored in WAV RIFF chunks. JSON files are only created when debug mode is enabled.
 
 ## Velocity Layer Distribution
 
@@ -349,11 +411,26 @@ AutosamplerT uses **logarithmic distribution** for automatic velocity layer calc
 
 Specify exact velocity boundaries between layers:
 
+**CLI syntax:**
 ```bash
-# 3 layers with splits at 50 and 90
+# 3 layers with splits at 50 and 90 (CLI uses comma-separated string)
 python autosamplerT.py --velocity_layers 3 --velocity_layers_split 50,90
 # Samples at: 25, 70, 108 (midpoint of each range)
 # Ranges: 0-50, 50-90, 90-127
+
+# 4 layers with splits at 32, 64, 96
+python autosamplerT.py --velocity_layers 4 --velocity_layers_split 32,64,96
+# Samples at: 16, 48, 80, 111
+# Ranges: 0-32, 32-64, 64-96, 96-127
+```
+
+**Script syntax:**
+```yaml
+sampling_midi:
+  velocity_layers: 3
+  velocity_layers_split: [50, 90]  # YAML list format
+  # OR
+  velocity_layers_split: null      # Use automatic logarithmic distribution
 ```
 
 Split points must:
