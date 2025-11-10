@@ -1,0 +1,16 @@
+audio_interface:
+  bitdepth: 24
+  samplerate: 44100
+
+midi_interface:
+  note_range:
+    start: 60
+    end: 60
+    interval: 1
+
+sampling:
+  hold_time: 2.0
+  release_time: 1.0
+  pause_time: 0.5
+  multisample_name: "Test_One_Note"
+  output_folder: "./output"

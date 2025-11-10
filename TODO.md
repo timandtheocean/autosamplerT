@@ -2,7 +2,7 @@
 
 ## Critical Issues - Not Implemented
 
-### 1. ❌ Postprocessing Arguments - COMPLETELY NOT IMPLEMENTED
+### 1. Postprocessing Arguments - COMPLETELY NOT IMPLEMENTED
 **Status:** Arguments defined but NO CODE EXECUTION PATH
 - All `--process` and `--process_*` arguments are parsed but never executed
 - No integration between `autosamplerT.py` main() and `postprocess.py`
@@ -38,7 +38,24 @@ if args.process or args.process_folder:
 
 ## Major Issues - Not Implemented
 
-### 2. ❌ `--audio_inputs` - NOT IMPLEMENTED
+### 2. `--note_range` JSON PARSING ISSUE ON WINDOWS POWERSHELL
+**Status:** Argument works with YAML files but fails with CLI on PowerShell
+- PowerShell escaping of JSON strings doesn't work: `--note_range '{\"start\":60,\"end\":60,\"interval\":1}'`
+- **Impact:** Users on Windows cannot use `--note_range` from command line
+- **Workaround:** Use `--script` with YAML file instead
+
+**Testing Results:**
+- ❌ Failed: `--note_range '{\"start\":60,\"end\":60,\"interval\":1}'` (ignored, uses default 36-96)
+- ✅ Works: Script YAML with `note_range: {start: 60, end: 60, interval: 1}`
+
+**Possible Solutions:**
+1. Add `--start_note`, `--end_note`, `--interval` as separate arguments
+2. Improve JSON parsing/error handling with better shell escaping docs
+3. Detect shell and provide platform-specific escaping hints
+
+---
+
+### 3. `--audio_inputs` - NOT IMPLEMENTED
 **Status:** Argument defined but completely ignored by sampler
 - Currently: Only records 1 (mono) or 2 (stereo) channels
 - Expected: Should support 1, 2, 4, or 8 channel recording
@@ -61,7 +78,7 @@ self.channels = 2 if self.mono_stereo == 'stereo' else 1  # WRONG!
 
 ---
 
-### 3. ❌ `--midi_latency_adjust` - NOT IMPLEMENTED
+### 3. `--midi_latency_adjust` - NOT IMPLEMENTED
 **Status:** Argument defined but never used
 - **Impact:** Cannot compensate for MIDI interface latency
 - Could cause timing issues with sample start points
@@ -72,7 +89,7 @@ self.channels = 2 if self.mono_stereo == 'stereo' else 1  # WRONG!
 
 ---
 
-### 4. ❌ `--script_mode` - NOT IMPLEMENTED
+### 4. `--script_mode` - NOT IMPLEMENTED
 **Status:** Argument defined but never checked
 - Unclear what behavior difference this should have
 - **Impact:** Unknown - needs clarification
@@ -83,7 +100,7 @@ self.channels = 2 if self.mono_stereo == 'stereo' else 1  # WRONG!
 
 ---
 
-### 5. ❌ `--debug` - PARTIALLY IMPLEMENTED
+### 5. `--debug` - PARTIALLY IMPLEMENTED
 **Status:** Argument defined but doesn't control logging level
 - Code uses `logging.debug()` throughout
 - But `--debug` flag doesn't actually enable debug logging
@@ -164,13 +181,13 @@ else:
 - `--lowest_note` and `--highest_note` - Key mapping range
 - Multi-velocity layer support
 - Round-robin layer support
-- Loop point metadata
+- Loop points stored in WAV RIFF 'smpl' chunk (not in SFZ file)
 
 **Testing Required:**
 - Test generated SFZ files load correctly in samplers
 - Verify velocity layer crossfading
 - Test round-robin triggering
-- Validate loop points in SFZ
+- Validate loop points read from WAV RIFF 'smpl' chunk by samplers
 
 ---
 
