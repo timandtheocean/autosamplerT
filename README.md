@@ -42,8 +42,11 @@ things are probably not fully working.
 - Sample normalize: gain each sample to maximum volume independently
 - Silence trimming: remove silence from start/end of samples
 - DC offset removal: remove DC bias from recordings
-- Auto-loop detection: find and set loop points for sustained sounds
-- Crossfade looping: create smooth loop transitions
+- Auto-loop detection: find and set loop points using autocorrelation algorithm
+  - Zero-crossing detection for smooth, click-free loop points
+  - Automatic loop detection or manual start/end time specification
+  - Configurable minimum loop duration
+- Crossfade looping: create smooth loop transitions with equal-power crossfade
 - Bit depth conversion: convert between 16/24/32-bit with optional dithering
 - Backup creation: automatically backup samples before processing
 
@@ -208,8 +211,14 @@ python autosamplerT.py --process_folder ./output/MySynth --patch_normalize --aut
 # Normalize and trim with backup (recommended for safety)
 python autosamplerT.py --process "MySynth" --patch_normalize --trim_silence --backup
 
-# Auto-loop with crossfade for sustained sounds
+# Auto-loop: automatic detection with zero-crossing alignment
+python autosamplerT.py --process "MySynth" --auto_loop --loop_min_duration 0.5
+
+# Auto-loop with crossfade for sustained sounds (equal-power crossfade)
 python autosamplerT.py --process "MySynth" --auto_loop --crossfade_loop 50
+
+# Auto-loop with manual start/end times (seconds)
+python autosamplerT.py --process "MySynth" --auto_loop --loop_start_time 1.5 --loop_end_time 3.2 --crossfade_loop 30
 
 # Convert bit depth with dithering
 python autosamplerT.py --process "MySynth" --convert_bitdepth 16 --dither

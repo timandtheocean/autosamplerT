@@ -91,16 +91,29 @@ class PostProcessor:
                 
                 # Auto-looping
                 if operations.get('auto_loop'):
-                    loop_points = self._find_loop_points(audio_data, samplerate)
+                    min_duration = operations.get('loop_min_duration', 0.1)
+                    start_time = operations.get('loop_start_time')
+                    end_time = operations.get('loop_end_time')
+                    
+                    loop_points = self._find_loop_points(
+                        audio_data, samplerate, 
+                        min_loop_length=min_duration,
+                        start_time=start_time,
+                        end_time=end_time
+                    )
+                    
                     if loop_points:
                         metadata['loop_start'], metadata['loop_end'] = loop_points
-                        print(f"  - Found loop points: {loop_points[0]} - {loop_points[1]}")
+                        loop_start_sec = loop_points[0] / samplerate
+                        loop_end_sec = loop_points[1] / samplerate
+                        loop_duration = loop_end_sec - loop_start_sec
+                        print(f"  - Found loop points: {loop_start_sec:.3f}s - {loop_end_sec:.3f}s (duration: {loop_duration:.3f}s)")
                         
                         # Crossfade loop if requested
                         crossfade_ms = operations.get('crossfade_loop')
                         if crossfade_ms:
                             audio_data = self._crossfade_loop(audio_data, loop_points, samplerate, crossfade_ms)
-                            print(f"  - Applied {crossfade_ms}ms loop crossfade")
+                            print(f"  - Applied {crossfade_ms}ms equal-power crossfade")
                 
                 # Bit depth conversion
                 target_bitdepth = operations.get('convert_bitdepth')
@@ -171,10 +184,11 @@ class PostProcessor:
                     
                     if chunk_id == b'fmt ':
                         # Parse format chunk
+                        # Format: audio_format(2), channels(2), samplerate(4), byterate(4), blockalign(2), bitspersample(2)
                         fmt = struct.unpack('<HHIIHH', chunk_data[:16])
                         channels = fmt[1]
                         samplerate = fmt[2]
-                        bitdepth = fmt[4]
+                        bitdepth = fmt[5]  # bits per sample is the last field
                     
                     elif chunk_id == b'data':
                         # Parse audio data
@@ -493,15 +507,56 @@ class PostProcessor:
         
         return audio_data[start_idx:end_idx]
     
-    def _find_loop_points(self, audio_data: np.ndarray, samplerate: int,
-                          min_loop_length: float = 0.1) -> Optional[Tuple[int, int]]:
+    def _find_zero_crossing(self, audio_data: np.ndarray, target_pos: int, 
+                           search_radius: int = 500) -> int:
         """
-        Find optimal loop points using autocorrelation method.
+        Find nearest zero crossing point near target position.
+        
+        Args:
+            audio_data: Audio data (mono)
+            target_pos: Target sample position
+            search_radius: Maximum samples to search in each direction (default: 500)
+        
+        Returns:
+            Sample position of nearest zero crossing
+        """
+        start = max(0, target_pos - search_radius)
+        end = min(len(audio_data), target_pos + search_radius)
+        
+        # Find zero crossings in search window
+        search_window = audio_data[start:end]
+        
+        # Detect sign changes (zero crossings)
+        signs = np.sign(search_window)
+        # Handle exact zeros by looking at neighbors
+        signs[signs == 0] = 1
+        zero_crossings = np.where(np.diff(signs) != 0)[0]
+        
+        if len(zero_crossings) == 0:
+            # No zero crossing found, return closest to zero value
+            abs_values = np.abs(search_window)
+            min_idx = np.argmin(abs_values)
+            return start + min_idx
+        
+        # Find closest zero crossing to target
+        target_offset = target_pos - start
+        distances = np.abs(zero_crossings - target_offset)
+        closest_idx = zero_crossings[np.argmin(distances)]
+        
+        return start + closest_idx
+    
+    def _find_loop_points(self, audio_data: np.ndarray, samplerate: int,
+                          min_loop_length: float = 0.1, start_time: float = None, 
+                          end_time: float = None) -> Optional[Tuple[int, int]]:
+        """
+        Find optimal loop points using autocorrelation with zero-crossing detection.
         
         Args:
             audio_data: Audio data as float32
             samplerate: Sample rate in Hz
             min_loop_length: Minimum loop length in seconds
+            start_time: Optional fixed start time in seconds
+            end_time: Optional fixed end time in seconds
         
         Returns:
             (loop_start, loop_end) in samples, or None if no good loop found
@@ -512,81 +567,161 @@ class PostProcessor:
         else:
             mono = audio_data
         
+        total_duration = len(mono) / samplerate
+        
+        # If both start and end times are provided, use them directly
+        if start_time is not None and end_time is not None:
+            loop_start = int(start_time * samplerate)
+            loop_end = int(end_time * samplerate)
+            
+            # Clamp to valid range
+            loop_start = max(0, min(loop_start, len(mono) - 1))
+            loop_end = max(loop_start + 1, min(loop_end, len(mono) - 1))
+            
+            # Find zero crossings for smooth transitions
+            loop_start = self._find_zero_crossing(mono, loop_start, search_radius=500)
+            loop_end = self._find_zero_crossing(mono, loop_end, search_radius=500)
+            
+            print(f"  - Using provided loop points: {start_time:.2f}s - {end_time:.2f}s")
+            return (loop_start, loop_end)
+        
+        # Auto-detect loop points
         # Focus on the sustained part (skip attack, use last 80%)
         start_search = int(len(mono) * 0.2)
+        
+        # If start_time provided, use it as starting point
+        if start_time is not None:
+            start_search = int(start_time * samplerate)
+            start_search = max(0, min(start_search, len(mono) - 1))
+        
         search_region = mono[start_search:]
         
         if len(search_region) < min_loop_length * samplerate:
             return None
         
-        # Calculate autocorrelation
-        correlation = signal.correlate(search_region, search_region, mode='full')
+        # Calculate autocorrelation for loop detection
+        # This finds repeating patterns in the audio
+        max_lag = min(len(search_region) // 2, int(10 * samplerate))  # Max 10 second loops
+        correlation = np.correlate(search_region[:max_lag], 
+                                   search_region[:max_lag], 
+                                   mode='full')
         correlation = correlation[len(correlation)//2:]  # Only positive lags
         
         # Find peaks in autocorrelation (potential loop lengths)
         min_samples = int(min_loop_length * samplerate)
-        correlation = correlation[min_samples:]
+        if min_samples >= len(correlation):
+            # Fallback to simple loop
+            loop_start = start_search
+            loop_end = len(mono) - 1
+            return (loop_start, loop_end)
         
-        # Find the first strong peak
-        peaks, properties = signal.find_peaks(correlation, height=np.max(correlation) * 0.3)
+        correlation_search = correlation[min_samples:]
         
-        if len(peaks) == 0:
-            # No good loop found, use last half as loop
+        # Normalize correlation
+        if len(correlation_search) > 0 and np.max(np.abs(correlation_search)) > 0:
+            correlation_search = correlation_search / np.max(np.abs(correlation_search))
+        else:
+            # No good loop found
             loop_start = len(mono) // 2
             loop_end = len(mono) - 1
             return (loop_start, loop_end)
         
-        # Use the first strong peak as loop length
-        loop_length = peaks[0] + min_samples
+        # Find the first strong peak (threshold 0.5 for good similarity)
+        peaks, properties = signal.find_peaks(correlation_search, 
+                                             height=0.5, 
+                                             distance=min_samples//2)
         
-        # Set loop points
-        loop_end = len(mono) - 1
-        loop_start = loop_end - loop_length
+        if len(peaks) == 0:
+            # Try lower threshold
+            peaks, properties = signal.find_peaks(correlation_search, 
+                                                 height=0.3,
+                                                 distance=min_samples//2)
         
-        # Make sure loop_start is positive
-        if loop_start < 0:
-            loop_start = start_search
+        if len(peaks) == 0:
+            # No good loop found, use second half as loop
+            loop_start = len(mono) // 2
+            loop_end = len(mono) - 1
+        else:
+            # Use the first strong peak as loop length
+            loop_length = peaks[0] + min_samples
+            
+            # Set loop points
+            if end_time is not None:
+                loop_end = int(end_time * samplerate)
+                loop_end = min(loop_end, len(mono) - 1)
+            else:
+                loop_end = len(mono) - 1
+            
+            loop_start = loop_end - loop_length
+            
+            # Make sure loop_start is positive
+            if loop_start < 0:
+                loop_start = start_search
+        
+        # Find zero crossings for smoother loop points
+        loop_start = self._find_zero_crossing(mono, loop_start, search_radius=500)
+        loop_end = self._find_zero_crossing(mono, loop_end, search_radius=500)
+        
+        # Ensure loop is still at least min_loop_length
+        if loop_end - loop_start < min_loop_length * samplerate:
+            loop_end = loop_start + int(min_loop_length * samplerate)
+            if loop_end >= len(mono):
+                loop_end = len(mono) - 1
+                loop_start = loop_end - int(min_loop_length * samplerate)
         
         return (loop_start, loop_end)
     
     def _crossfade_loop(self, audio_data: np.ndarray, loop_points: Tuple[int, int],
                         samplerate: int, crossfade_ms: float) -> np.ndarray:
         """
-        Apply crossfade at loop points for smooth looping.
+        Apply crossfade at loop points for smooth looping with equal-power crossfade.
         
         Args:
             audio_data: Audio data as float32
             loop_points: (loop_start, loop_end) in samples
             samplerate: Sample rate in Hz
             crossfade_ms: Crossfade length in milliseconds
+        
+        Returns:
+            Audio data with crossfaded loop points
         """
         loop_start, loop_end = loop_points
         crossfade_samples = int(crossfade_ms * samplerate / 1000)
         
-        # Make sure we have enough samples
-        if crossfade_samples > (loop_end - loop_start) / 2:
-            crossfade_samples = (loop_end - loop_start) // 4
+        # Make sure we have enough samples for crossfade
+        loop_length = loop_end - loop_start
+        if crossfade_samples > loop_length / 2:
+            crossfade_samples = loop_length // 4
         
         if crossfade_samples < 2:
             return audio_data
         
-        # Create fade curves
-        fade_out = np.linspace(1.0, 0.0, crossfade_samples)
-        fade_in = np.linspace(0.0, 1.0, crossfade_samples)
+        # Equal-power crossfade curves (smoother than linear)
+        fade_curve = np.linspace(0, np.pi/2, crossfade_samples)
+        fade_out = np.cos(fade_curve)
+        fade_in = np.sin(fade_curve)
         
         # Apply crossfade at loop end
-        if loop_end - crossfade_samples >= 0 and loop_start + crossfade_samples <= len(audio_data):
+        crossfade_start = loop_end - crossfade_samples
+        crossfade_end = loop_end
+        loop_fade_end = loop_start + crossfade_samples
+        
+        if crossfade_start >= 0 and loop_fade_end <= len(audio_data):
             if audio_data.ndim == 1:
                 # Mono
-                audio_data[loop_end-crossfade_samples:loop_end] *= fade_out
-                audio_data[loop_end-crossfade_samples:loop_end] += \
-                    audio_data[loop_start:loop_start+crossfade_samples] * fade_in
+                tail = audio_data[crossfade_start:crossfade_end].copy()
+                head = audio_data[loop_start:loop_fade_end].copy()
+                
+                # Apply equal-power crossfade
+                audio_data[crossfade_start:crossfade_end] = tail * fade_out + head * fade_in
             else:
-                # Stereo
+                # Stereo/Multi-channel
                 for ch in range(audio_data.shape[1]):
-                    audio_data[loop_end-crossfade_samples:loop_end, ch] *= fade_out
-                    audio_data[loop_end-crossfade_samples:loop_end, ch] += \
-                        audio_data[loop_start:loop_start+crossfade_samples, ch] * fade_in
+                    tail = audio_data[crossfade_start:crossfade_end, ch].copy()
+                    head = audio_data[loop_start:loop_fade_end, ch].copy()
+                    
+                    # Apply equal-power crossfade
+                    audio_data[crossfade_start:crossfade_end, ch] = tail * fade_out + head * fade_in
         
         return audio_data
     

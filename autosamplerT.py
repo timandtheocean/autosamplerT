@@ -161,11 +161,17 @@ def get_arg_parser():
     postprocessing.add_argument('--trim_silence', action='store_true',
                                help='Trim silence from start/end of samples')
     postprocessing.add_argument('--auto_loop', action='store_true',
-                               help='Find and set loop points')
+                               help='Find and set loop points using autocorrelation with zero-crossing detection')
+    postprocessing.add_argument('--loop_min_duration', type=float, metavar='SECONDS',
+                               help='Minimum loop duration in seconds (default: 0.1)')
+    postprocessing.add_argument('--loop_start_time', type=float, metavar='SECONDS',
+                               help='Fixed loop start time in seconds (optional)')
+    postprocessing.add_argument('--loop_end_time', type=float, metavar='SECONDS',
+                               help='Fixed loop end time in seconds (optional)')
     postprocessing.add_argument('--dc_offset_removal', action='store_true',
                                help='Remove DC offset from samples')
     postprocessing.add_argument('--crossfade_loop', type=float, metavar='MS',
-                               help='Crossfade loop points (milliseconds, requires --auto_loop)')
+                               help='Crossfade loop points with equal-power curve (milliseconds, requires --auto_loop)')
     postprocessing.add_argument('--convert_bitdepth', type=int, metavar='BITS',
                                choices=[16, 24, 32], help='Convert to different bit depth')
     postprocessing.add_argument('--dither', action='store_true',
@@ -365,6 +371,79 @@ def main():
         os.system(f"{sys.executable} src/set_midi_config.py")
         print("Setup complete.")
         sys.exit(0)
+
+    # Postprocessing mode
+    if args.process or args.process_folder:
+        print("=== AutosamplerT - Postprocessing ===")
+        
+        try:
+            from src.postprocess import PostProcessor
+            from pathlib import Path
+            
+            # Create postprocessor
+            processor = PostProcessor(backup=args.backup)
+            
+            # Get sample paths
+            sample_paths = []
+            
+            if args.process_folder:
+                # Process specific folder
+                folder = Path(args.process_folder)
+                if not folder.exists():
+                    print(f"Error: Folder not found: {folder}")
+                    sys.exit(1)
+                sample_paths = list(folder.glob("*.wav"))
+                print(f"Processing folder: {folder}")
+            elif args.process:
+                # Process multisample by name
+                multisample_folder = Path(config.get('sampling', {}).get('output_folder', './output')) / args.process
+                samples_folder = multisample_folder / 'samples'
+                
+                if not samples_folder.exists():
+                    print(f"Error: Multisample not found: {args.process}")
+                    print(f"Expected folder: {samples_folder}")
+                    sys.exit(1)
+                
+                sample_paths = list(samples_folder.glob("*.wav"))
+                print(f"Processing multisample: {args.process}")
+            
+            if not sample_paths:
+                print("Error: No WAV files found to process")
+                sys.exit(1)
+            
+            print(f"Found {len(sample_paths)} samples")
+            
+            # Build operations dictionary from arguments
+            operations = {
+                'patch_normalize': args.patch_normalize,
+                'sample_normalize': args.sample_normalize,
+                'trim_silence': args.trim_silence,
+                'auto_loop': args.auto_loop,
+                'loop_min_duration': args.loop_min_duration if args.loop_min_duration else 0.1,
+                'loop_start_time': args.loop_start_time,
+                'loop_end_time': args.loop_end_time,
+                'crossfade_loop': args.crossfade_loop,
+                'dc_offset_removal': args.dc_offset_removal,
+                'convert_bitdepth': args.convert_bitdepth,
+                'dither': args.dither,
+                'update_note_metadata': True  # Always update metadata from filename
+            }
+            
+            # Process samples
+            processor.process_samples([str(p) for p in sample_paths], operations)
+            
+            print("\nPostprocessing completed successfully!")
+            sys.exit(0)
+            
+        except ImportError as e:
+            print(f"Error: Missing dependencies - {e}")
+            print("Please install required packages: numpy, scipy")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error during postprocessing: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
 
     # Run sampling
     print("=== AutosamplerT ===")
