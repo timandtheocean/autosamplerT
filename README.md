@@ -192,8 +192,41 @@ python autosamplerT.py --velocity_layers 3 --velocity_minimum 30 --velocity_laye
 # Send program change before sampling
 python autosamplerT.py --program_change 10
 
-# Send CC messages
-python autosamplerT.py --cc_messages '{"7":127,"10":64}'
+# Send 7-bit CC messages (volume=127, pan=center)
+python autosamplerT.py --cc_messages "7,127;10,64"
+
+# Send 14-bit CC messages (modulation=8192 center, expression=16383 max)
+python autosamplerT.py --cc14_messages "1,8192;11,16383"
+
+# Combine both 7-bit and 14-bit CC
+python autosamplerT.py --cc_messages "7,127" --cc14_messages "1,8192"
+```
+
+**Understanding CC Messages:**
+
+**7-bit CC (Control Change):**
+- Range: 0-127 (128 values)
+- Format: `"controller,value;controller,value"` (CLI) or `{controller: value}` (YAML)
+- Common controllers:
+  - CC 1: Modulation Wheel (0-127)
+  - CC 7: Volume (0-127)
+  - CC 10: Pan (0=left, 64=center, 127=right)
+  - CC 11: Expression (0-127)
+  - CC 74: Filter Cutoff (0-127)
+  - CC 71: Filter Resonance (0-127)
+
+**14-bit CC (High Resolution):**
+- Range: 0-16383 (16,384 values)
+- Format: `"controller,value;controller,value"` (CLI) or `{controller: value}` (YAML)
+- Uses two messages automatically: MSB (controller N) + LSB (controller N+32)
+- Controllers: 0-31 only (14-bit CC uses pairs)
+- Example: CC1 (14-bit) sends CC1 (MSB) + CC33 (LSB)
+- Common uses:
+  - CC 1: Modulation Wheel (0-16383, center=8192)
+  - CC 11: Expression (0-16383)
+  - Pitch Bend range extension
+  - High-resolution filter sweeps
+
 ```
 
 #### Sampling Options Examples
@@ -326,7 +359,8 @@ sampling_midi:
   # Default MIDI settings (sent once at start of sampling)
   midi_channels: [0]               # MIDI channels to sample (0-15)
   program_change: 10               # Program change 0-127, or null
-  cc_messages: {7: 127, 10: 64}    # CC messages: {controller: value}
+  cc_messages: {7: 127, 10: 64}    # 7-bit CC messages: {controller: value} (0-127)
+  cc14_messages: {1: 8192}         # 14-bit CC messages: {controller: value} (0-16383)
   sysex_messages: []               # SysEx messages as hex strings
   
   # Note range and layers - use dict syntax
@@ -341,12 +375,14 @@ sampling_midi:
     - velocity_layer: 0            # First velocity layer (softest)
       midi_channel: 0
       program_change: null
-      cc_messages: {74: 20}        # Example: Filter cutoff
+      cc_messages: {74: 20}        # 7-bit: Filter cutoff low
+      cc14_messages: {1: 2048}     # 14-bit: Modulation low
       sysex_messages: []
     
     - velocity_layer: 1            # Second velocity layer
       midi_channel: 0
-      cc_messages: {74: 60}
+      cc_messages: {74: 60}        # 7-bit: Filter cutoff medium
+      cc14_messages: {1: 8192}     # 14-bit: Modulation center
   
   # Per-round-robin-layer MIDI control (optional)
   roundrobin_midi_control:
