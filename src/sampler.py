@@ -237,13 +237,31 @@ class AutoSampler:
             record_channels = 2 if self.mono_stereo == 'mono' else self.channels
             
             # Record audio
+            frames = int(duration * self.samplerate)
+            logging.info(f"Starting recording: {frames} frames ({duration:.1f}s)")
+            
             recording = sd.rec(
-                int(duration * self.samplerate),
+                frames,
                 samplerate=self.samplerate,
                 channels=record_channels,
-                dtype='float32'
+                dtype='float32',
+                blocking=False
             )
-            sd.wait()  # Wait until recording is finished
+            
+            # Wait for recording to complete with timeout
+            # Add extra buffer time (max of 10s or 50% of duration)
+            timeout = duration + max(10.0, duration * 0.5)
+            logging.debug(f"Waiting for recording to complete (timeout: {timeout:.1f}s)...")
+            
+            try:
+                sd.wait(timeout)
+                logging.info(f"Recording completed: {len(recording)} frames")
+            except sd.CallbackAbort as e:
+                logging.error(f"Recording aborted: {e}")
+                return None
+            except Exception as e:
+                logging.error(f"Recording wait failed: {e}")
+                return None
             
             # If mono output is requested, extract the specified channel
             if self.mono_stereo == 'mono' and record_channels == 2:
@@ -330,6 +348,8 @@ class AutoSampler:
             True if save successful, False otherwise
         """
         try:
+            logging.info(f"Saving WAV file: {filepath} ({len(audio)} frames)")
+            
             # Convert float32 to appropriate bit depth
             if self.bitdepth == 16:
                 audio_int = np.int16(audio * 32767)
@@ -355,11 +375,14 @@ class AutoSampler:
                 
                 # Convert audio to bytes
                 if self.bitdepth == 24:
-                    # Special handling for 24-bit
-                    audio_bytes = b''
-                    for sample in audio_int.flatten():
-                        # Write as 3 bytes (little-endian)
-                        audio_bytes += struct.pack('<i', sample)[:3]
+                    # Special handling for 24-bit - efficient method
+                    # Convert to bytes and extract 3 bytes per sample
+                    audio_32bit = audio_int.tobytes()
+                    audio_bytes = bytearray()
+                    # Each 32-bit sample is 4 bytes, we want the lower 3 bytes
+                    for i in range(0, len(audio_32bit), 4):
+                        audio_bytes.extend(audio_32bit[i:i+3])
+                    audio_bytes = bytes(audio_bytes)
                 else:
                     audio_bytes = audio_int.tobytes()
                 
@@ -458,29 +481,51 @@ class AutoSampler:
         if latency_comp > 0 and not self.test_mode:
             time.sleep(latency_comp)
         
-        # Record audio
-        audio = self.record_audio(total_duration)
+        # Start recording in a separate thread so we can send note-off during recording
+        import threading
+        recording_complete = threading.Event()
+        audio_result = [None]
         
-        if audio is None:
-            logging.error("Audio recording returned None")
-            return None
+        def record_thread():
+            audio_result[0] = self.record_audio(total_duration)
+            recording_complete.set()
         
-        # Send MIDI note off after hold time (skip sleep in test mode)
         if not self.test_mode:
+            # Start recording thread
+            record_thread_obj = threading.Thread(target=record_thread)
+            record_thread_obj.start()
+            
+            # Wait for hold time, then send note off
             time.sleep(self.hold_time)
             note_off = mido.Message('note_off', note=note, velocity=0, channel=channel)
             if self.midi_output_port:
                 self.midi_output_port.send(note_off)
             
-            # Wait for release to complete
-            time.sleep(self.release_time)
+            # Wait for recording to complete
+            recording_complete.wait()
+            audio = audio_result[0]
+        else:
+            # Test mode: just record without MIDI timing
+            audio = self.record_audio(total_duration)
+        
+        if audio is None:
+            logging.error("Audio recording returned None")
+            return None
+        
+        logging.info(f"Processing audio: {len(audio)} frames, {audio.shape}")
         
         # Process audio: silence detection and trimming
+        logging.debug("Detecting silence...")
         start, end = self.detect_silence(audio)
+        logging.debug(f"Silence detection complete: trim from {start} to {end}")
+        
         audio_trimmed = audio[start:end]
+        logging.debug(f"Audio trimmed: {len(audio_trimmed)} frames")
         
         # Normalize individual sample
+        logging.debug("Normalizing audio...")
         audio_processed = self.normalize_audio(audio_trimmed)
+        logging.info(f"Audio processing complete: {len(audio_processed)} frames")
         
         return audio_processed
     

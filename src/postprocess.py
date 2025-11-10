@@ -131,8 +131,10 @@ class PostProcessor:
                 print(f"  [ERROR] Error processing {path}: {e}")
                 import traceback
                 traceback.print_exc()
+                return False
         
         print(f"\n[SUCCESS] Processing complete!")
+        return True
     
     def _create_backups(self, sample_paths: List[str]):
         """Create backup copies of samples before processing."""
@@ -278,7 +280,7 @@ class PostProcessor:
         else:
             raise ValueError(f"Unsupported bit depth: {bitdepth}")
         
-        with wave.open(path, 'wb') as wav:
+        with wave.open(str(path), 'wb') as wav:
             wav.setnchannels(channels)
             wav.setsampwidth(sample_width)
             wav.setframerate(samplerate)

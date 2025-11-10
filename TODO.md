@@ -164,7 +164,71 @@ self.channels = 2 if self.mono_stereo == 'stereo' else 1  # WRONG!
 
 ---
 
-### 9. `--midi_latency_adjust` - NOT IMPLEMENTED
+### 9. [HIGH PRIORITY] RECORDING LATENCY DETECTION AND COMPENSATION - NOT IMPLEMENTED
+**Status:** Critical timing issue - recordings are ~0.19s shorter than requested
+- **Observed Behavior:**
+  - `--hold_time 1.0 --release_time 0.5` → Expected 1.5s, Actual 1.311s (0.189s short)
+  - `--hold_time 2.0 --release_time 2.5` → Expected 4.5s, Actual 4.311s (0.189s short)
+  - Consistent ~190ms latency across different timing configurations
+  - Very long recordings (10s+ hold time) cause the sampler to hang/freeze
+- **Root Causes:**
+  - MIDI → audio interface startup latency
+  - Audio interface buffer latency
+  - MIDI note-on processing delay
+  - Recording buffer startup time
+- **Impact:** 
+  - Hold times are NOT exact as requested
+  - Long recordings (>10s) freeze/hang
+  - Users cannot get precise sample durations
+  - Sustain portions may be cut too short
+
+**Proposed Solutions:**
+1. **Auto-detect latency** (RECOMMENDED):
+   - Record silent audio with no MIDI note
+   - Measure time until first non-zero sample
+   - Store latency value and add to requested durations
+   - Run calibration on first use or when config changes
+   
+2. **Sample longer and trim** (ALTERNATIVE):
+   - Always record `hold_time + release_time + latency_buffer`
+   - Add extra 0.5s buffer to all recordings
+   - Trim to exact length in postprocessing
+   - Use amplitude envelope detection to find note start
+   - Pros: More reliable, handles variable latency
+   - Cons: Requires postprocessing step
+
+3. **Fix hanging on long recordings**:
+   - Investigate why >10s recordings freeze
+   - May be audio buffer overflow
+   - May be MIDI timeout issue
+   - Add timeout handling and error recovery
+
+**Required Implementation:**
+```python
+# In sampler.py - Auto-detect latency method:
+def _calibrate_latency(self):
+    """Measure system recording latency."""
+    # Record 1 second of silence (no MIDI)
+    # Find first non-zero sample
+    # Calculate latency = first_sample_index / samplerate
+    # Store in config for future use
+    
+# Apply latency compensation:
+def record_sample(...):
+    actual_duration = hold_time + release_time + self.latency_compensation
+    recording = sd.rec(actual_duration, ...)
+```
+
+**Testing Required:**
+- Verify latency is consistent across multiple runs
+- Test with different audio interfaces
+- Test with different buffer sizes
+- Verify long recordings (10s+) don't hang
+- Validate trimmed samples have exact requested duration
+
+**User Request:** "The hold times must be exact. Probably better to sample longer and cut it right after sampling?"
+
+### 10. `--midi_latency_adjust` - NOT IMPLEMENTED
 **Status:** Argument defined but never used
 - **Impact:** Cannot compensate for MIDI interface latency
 - Could cause timing issues with sample start points
