@@ -27,7 +27,7 @@ Configuration is saved to `conf/autosamplerT_config.yaml`
 Test your setup without recording (5 notes, test mode):
 
 ```bash
-python autosamplerT.py --test_mode --note_range '{"start":60,"end":64,"interval":1}' --hold_time 0.5
+python autosamplerT.py --test_mode --note_range_start C4 --note_range_end E4 --note_range_interval 1 --hold_time 0.5
 ```
 
 You should see:
@@ -40,7 +40,7 @@ You should see:
 Sample one octave (C3 to C4) with default settings:
 
 ```bash
-python autosamplerT.py --note_range '{"start":48,"end":60,"interval":1}'
+python autosamplerT.py --note_range_start C3 --note_range_end C4 --note_range_interval 1
 ```
 
 This will:
@@ -56,7 +56,7 @@ This will:
 Sample entire keyboard range (C2 to C7):
 
 ```bash
-python autosamplerT.py --note_range '{"start":36,"end":96,"interval":1}' --multisample_name "MyFullSynth"
+python autosamplerT.py --note_range_start C2 --note_range_end C7 --note_range_interval 1 --multisample_name "MyFullSynth"
 ```
 
 ### 2. Every 3rd Note (Minor Third Intervals)
@@ -64,7 +64,7 @@ python autosamplerT.py --note_range '{"start":36,"end":96,"interval":1}' --multi
 Faster sampling for long sounds:
 
 ```bash
-python autosamplerT.py --note_range '{"start":36,"end":96,"interval":3}' --hold_time 3.0 --release_time 2.0
+python autosamplerT.py --note_range_start C2 --note_range_end C7 --note_range_interval 3 --hold_time 3.0 --release_time 2.0
 ```
 
 ### 3. Velocity Layers
@@ -72,7 +72,7 @@ python autosamplerT.py --note_range '{"start":36,"end":96,"interval":3}' --hold_
 Sample 4 velocity layers:
 
 ```bash
-python autosamplerT.py --velocity_layers 4 --note_range '{"start":48,"end":72,"interval":1}'
+python autosamplerT.py --velocity_layers 4 --note_range_start C3 --note_range_end C5 --note_range_interval 1
 ```
 
 ### 4. Round-Robin Layers
@@ -80,7 +80,7 @@ python autosamplerT.py --velocity_layers 4 --note_range '{"start":48,"end":72,"i
 Sample with 3 round-robin variations:
 
 ```bash
-python autosamplerT.py --roundrobin_layers 3 --note_range '{"start":48,"end":72,"interval":1}'
+python autosamplerT.py --roundrobin_layers 3 --note_range_start C3 --note_range_end C5 --note_range_interval 1
 ```
 
 ### 5. Drum Machine (No Pitch)
@@ -88,7 +88,7 @@ python autosamplerT.py --roundrobin_layers 3 --note_range '{"start":48,"end":72,
 Sample percussion sounds:
 
 ```bash
-python autosamplerT.py --note_range '{"start":36,"end":51,"interval":1}' --hold_time 1.0 --release_time 0.5 --multisample_name "DrumKit"
+python autosamplerT.py --note_range_start C2 --note_range_end D#3 --note_range_interval 1 --hold_time 1.0 --release_time 0.5 --multisample_name "DrumKit"
 ```
 
 ### 6. High Quality Settings

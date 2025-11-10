@@ -38,20 +38,21 @@ if args.process or args.process_folder:
 
 ## Major Issues - Not Implemented
 
-### 2. `--note_range` JSON PARSING ISSUE ON WINDOWS POWERSHELL
-**Status:** Argument works with YAML files but fails with CLI on PowerShell
-- PowerShell escaping of JSON strings doesn't work: `--note_range '{\"start\":60,\"end\":60,\"interval\":1}'`
-- **Impact:** Users on Windows cannot use `--note_range` from command line
-- **Workaround:** Use `--script` with YAML file instead
+### 2. ✅ `--note_range` JSON PARSING ISSUE - FIXED
+**Status:** FIXED - Replaced with separate arguments
+- **Old (broken):** `--note_range '{\"start\":60,\"end\":60,\"interval\":1}'`
+- **New (working):** `--note_range_start C4 --note_range_end C4 --note_range_interval 1`
+
+**Solution Implemented:**
+- Added `--note_range_start NOTE` - Accepts MIDI numbers (0-127) or note names (C2, A#4, Bb3)
+- Added `--note_range_end NOTE` - Accepts MIDI numbers or note names
+- Added `--note_range_interval N` - Interval between notes (1=chromatic, 12=octaves)
+- Includes `note_name_to_midi()` function for parsing note names
 
 **Testing Results:**
-- ❌ Failed: `--note_range '{\"start\":60,\"end\":60,\"interval\":1}'` (ignored, uses default 36-96)
-- ✅ Works: Script YAML with `note_range: {start: 60, end: 60, interval: 1}`
-
-**Possible Solutions:**
-1. Add `--start_note`, `--end_note`, `--interval` as separate arguments
-2. Improve JSON parsing/error handling with better shell escaping docs
-3. Detect shell and provide platform-specific escaping hints
+- ✅ Works: `--note_range_start C4 --note_range_end C4 --note_range_interval 1`
+- ✅ Works: `--note_range_start 60 --note_range_end 60 --note_range_interval 1`
+- ✅ Works: `--note_range_start A#3 --note_range_end C#5 --note_range_interval 3`
 
 ---
 

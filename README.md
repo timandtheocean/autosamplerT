@@ -117,8 +117,14 @@ python autosamplerT.py --gain 1.5
 #### MIDI Options Examples
 
 ```bash
-# Set note range (C2 to C7, chromatic)
-python autosamplerT.py --note_range '{"start":36,"end":96,"interval":1}'
+# Set note range with note names (A#3 to C#5, chromatic)
+python autosamplerT.py --note_range_start A#3 --note_range_end C#5 --note_range_interval 1
+
+# Set note range with MIDI numbers (C2=36 to C7=96, chromatic)
+python autosamplerT.py --note_range_start 36 --note_range_end 96 --note_range_interval 1
+
+# Sample every octave (C4 to C7)
+python autosamplerT.py --note_range_start C4 --note_range_end C7 --note_range_interval 12
 
 # Set velocity layers
 python autosamplerT.py --velocity_layers 4
@@ -234,8 +240,8 @@ After sampling, you'll find:
 ## Workflow Example
 
 1. **Setup**: `python autosamplerT.py --setup`
-2. **Test**: `python autosamplerT.py --test_mode --note_range '{"start":60,"end":72,"interval":12}'`
-3. **Sample**: `python autosamplerT.py --velocity_layers 3 --note_range '{"start":36,"end":96,"interval":3}'`
+2. **Test**: `python autosamplerT.py --test_mode --note_range_start C4 --note_range_end C5 --note_range_interval 12`
+3. **Sample**: `python autosamplerT.py --velocity_layers 3 --note_range_start C2 --note_range_end C7 --note_range_interval 3`
 4. **Output**: Check `./output/` folder for WAV files and SFZ
 
 ## Platform Support

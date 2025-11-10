@@ -2,6 +2,54 @@ import argparse
 import sys
 import os
 import yaml
+import re
+
+def note_name_to_midi(note_str):
+    """
+    Convert note name to MIDI number.
+    Accepts: C-1 to G9, with optional # or b for sharps/flats.
+    Examples: C4 = 60, A4 = 69, C#4 = 61, Db4 = 61
+    
+    Args:
+        note_str: Note name (e.g., 'C4', 'A#3', 'Bb2') or MIDI number as string
+        
+    Returns:
+        MIDI note number (0-127) or None if invalid
+    """
+    # If it's already a number, return it
+    try:
+        midi_num = int(note_str)
+        if 0 <= midi_num <= 127:
+            return midi_num
+        return None
+    except ValueError:
+        pass
+    
+    # Parse note name
+    note_str = note_str.strip().upper()
+    match = re.match(r'^([A-G])([#B]?)(-?[0-9])$', note_str)
+    if not match:
+        return None
+    
+    note_name, accidental, octave = match.groups()
+    octave = int(octave)
+    
+    # Note to semitone mapping (C=0, D=2, E=4, F=5, G=7, A=9, B=11)
+    note_values = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11}
+    semitone = note_values[note_name]
+    
+    # Apply accidental
+    if accidental == '#':
+        semitone += 1
+    elif accidental == 'B':  # Flat
+        semitone -= 1
+    
+    # Calculate MIDI number (C-1 = 0, C0 = 12, C4 = 60)
+    midi_num = (octave + 1) * 12 + semitone
+    
+    if 0 <= midi_num <= 127:
+        return midi_num
+    return None
 
 def get_arg_parser():
     parser = argparse.ArgumentParser(
@@ -58,8 +106,12 @@ def get_arg_parser():
                      help='Program change number (0-127)')
     midi.add_argument('--cc_messages', type=str, metavar='JSON',
                      help='CC messages as JSON (e.g., {"7":127,"10":64})')
-    midi.add_argument('--note_range', type=str, metavar='JSON',
-                     help='Note range as JSON (e.g., {"start":36,"end":96,"interval":1})')
+    midi.add_argument('--note_range_start', type=str, metavar='NOTE',
+                     help='Starting note (MIDI number 0-127 or note name like C2, A#4)')
+    midi.add_argument('--note_range_end', type=str, metavar='NOTE',
+                     help='Ending note (MIDI number 0-127 or note name like C7, G#6)')
+    midi.add_argument('--note_range_interval', type=int, metavar='N',
+                     help='Interval between notes (1=chromatic, 12=octaves)')
     midi.add_argument('--velocity_layers', type=int, metavar='N',
                      help='Number of velocity layers')
     midi.add_argument('--roundrobin_layers', type=int, metavar='N',
@@ -201,6 +253,25 @@ def main():
         'debug': args.debug if args.debug else None
     }, 'audio_interface')
     
+    # Build note_range dict from individual arguments
+    note_range_dict = None
+    if args.note_range_start is not None or args.note_range_end is not None or args.note_range_interval is not None:
+        note_range_dict = {}
+        if args.note_range_start is not None:
+            start_midi = note_name_to_midi(args.note_range_start)
+            if start_midi is None:
+                print(f"Error: Invalid start note '{args.note_range_start}'")
+                sys.exit(1)
+            note_range_dict['start'] = start_midi
+        if args.note_range_end is not None:
+            end_midi = note_name_to_midi(args.note_range_end)
+            if end_midi is None:
+                print(f"Error: Invalid end note '{args.note_range_end}'")
+                sys.exit(1)
+            note_range_dict['end'] = end_midi
+        if args.note_range_interval is not None:
+            note_range_dict['interval'] = args.note_range_interval
+    
     update_config_from_args(config, {
         'midi_input_name': args.midi_input_name,
         'midi_output_name': args.midi_output_name,
@@ -208,7 +279,7 @@ def main():
         'sysex_messages': args.sysex_messages,
         'program_change': args.program_change,
         'cc_messages': args.cc_messages,
-        'note_range': args.note_range,
+        'note_range': note_range_dict,
         'midi_latency_adjust': args.midi_latency_adjust
     }, 'midi_interface')
     
