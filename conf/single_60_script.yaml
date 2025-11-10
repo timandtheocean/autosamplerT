@@ -1,0 +1,8 @@
+sampling:
+  hold_time: 1.0
+  release_time: 0.5
+  pause_time: 0.5
+  multisample_name: "single_60_script_midi_number_rr"
+  roundrobin_layers: 2
+midi_interface:
+  note_range: {start: 60, end: 60, interval: 1}

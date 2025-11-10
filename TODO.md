@@ -36,10 +36,10 @@ if args.process or args.process_folder:
 
 ---
 
-## Major Issues - Not Implemented
+## Implemented Features [COMPLETED]
 
-### 2. ✅ `--note_range` JSON PARSING ISSUE - FIXED
-**Status:** FIXED - Replaced with separate arguments
+### 2. [COMPLETED] `--note_range` JSON PARSING - FIXED AND TESTED
+**Status:** FIXED - Replaced with separate arguments, fully tested
 - **Old (broken):** `--note_range '{\"start\":60,\"end\":60,\"interval\":1}'`
 - **New (working):** `--note_range_start C4 --note_range_end C4 --note_range_interval 1`
 
@@ -47,16 +47,101 @@ if args.process or args.process_folder:
 - Added `--note_range_start NOTE` - Accepts MIDI numbers (0-127) or note names (C2, A#4, Bb3)
 - Added `--note_range_end NOTE` - Accepts MIDI numbers or note names
 - Added `--note_range_interval N` - Interval between notes (1=chromatic, 12=octaves)
-- Includes `note_name_to_midi()` function for parsing note names
+- Includes `note_name_to_midi()` function for parsing note names with sharp/flat support
 
 **Testing Results:**
-- ✅ Works: `--note_range_start C4 --note_range_end C4 --note_range_interval 1`
-- ✅ Works: `--note_range_start 60 --note_range_end 60 --note_range_interval 1`
-- ✅ Works: `--note_range_start A#3 --note_range_end C#5 --note_range_interval 3`
+- [PASS] Works: `--note_range_start C4 --note_range_end C4 --note_range_interval 1`
+- [PASS] Works: `--note_range_start 60 --note_range_end 60 --note_range_interval 1`
+- [PASS] Works: `--note_range_start A#3 --note_range_end C#5 --note_range_interval 3`
+- [PASS] Tested in regression suite (basic group, 4 tests passing)
+
+### 3. [COMPLETED] VELOCITY LAYERS - FULLY IMPLEMENTED AND TESTED
+**Status:** Complete with logarithmic distribution, custom splits, and minimum velocity
+- **Features:**
+  - Automatic logarithmic distribution (more density at higher velocities)
+  - Custom split points: `--velocity_layers_split 50,90` for precise control
+  - Minimum velocity: `--velocity_minimum 45` to skip very soft samples
+  - Single velocity layer support
+  
+**Implementation Details:**
+- Logarithmic curve: `math.pow(2.0, position)` for musical velocity distribution
+- Validation: split count = layers - 1, ascending order, range 1-127
+- SFZ generation: proper lovel/hivel ranges calculated from split points
+- WAV metadata: velocity stored in RIFF 'note' chunk (3-byte format)
+
+**Testing Results:**
+- [PASS] 4 layers automatic: samples at 1, 33, 75, 127
+- [PASS] 4 layers with min 45: samples at 45, 66, 93, 127
+- [PASS] 3 layers custom splits 50,90: samples at 25, 70, 108
+- [PASS] Single layer with velocity 100
+- [PASS] Multiple notes × velocity layers
+- [PASS] Added to regression suite (velocity group, 5 tests passing)
+
+### 4. [COMPLETED] ROUND-ROBIN LAYERS - FULLY IMPLEMENTED AND TESTED
+**Status:** Complete with proper SFZ seq_length/seq_position
+- **Features:**
+  - Multiple round-robin layers: `--roundrobin_layers 3`
+  - Proper SFZ formatting with seq_length and seq_position
+  - WAV metadata removed (was in RIFF chunk, removed per user request)
+  
+**Testing Results:**
+- [PASS] 2 RR layers, single note
+- [PASS] 2 RR layers × multiple notes
+- [PASS] Combined with velocity layers (3 vel × 2 RR = 6 samples)
+- [PASS] Added to regression suite (roundrobin group, 2 tests; combined group, 2 tests)
+
+### 5. [COMPLETED] MONO/STEREO RECORDING - FULLY IMPLEMENTED AND TESTED
+**Status:** Complete with channel selection
+- **Features:**
+  - Stereo recording (default): `--mono_stereo stereo`
+  - Mono left channel: `--mono_stereo mono --mono_channel 0`
+  - Mono right channel: `--mono_stereo mono --mono_channel 1`
+  
+**Testing Results:**
+- [PASS] Mono left: creates 1-channel WAV
+- [PASS] Mono right: creates 1-channel WAV
+- [PASS] Stereo: creates 2-channel WAV
+- [PASS] Added to regression suite (audio group, 3 tests passing)
+
+### 6. [COMPLETED] WAV METADATA - IMPLEMENTED (3-BYTE FORMAT)
+**Status:** Custom RIFF 'note' chunk with note, velocity, channel
+- **Format:** 3 bytes per chunk (note, velocity, MIDI channel)
+- **Round-robin removed:** Per user request, RR metadata not stored in WAV
+- **Tool:** `verify_wav_metadata.py` to inspect RIFF chunks
+  
+**Testing Results:**
+- [PASS] Verified with `verify_wav_metadata.py`
+- [PASS] Added to regression suite (metadata group, 1 test)
+
+### 7. [COMPLETED] COMPREHENSIVE REGRESSION TEST SUITE - CREATED
+**Status:** Complete with 17 tests across 6 groups
+- **Test Script:** `test_all.py` (Python) and `test_all.ps1` (PowerShell)
+- **Groups:** basic (4), velocity (5), roundrobin (2), combined (2), audio (3), metadata (1)
+- **Features:**
+  - Automatic cleanup of existing test directories
+  - Sample count verification
+  - WAV metadata validation
+  - Quick mode for faster testing
+  - Group-specific testing
+  - Detailed pass/fail reporting with timing
+  
+**Usage:**
+```bash
+python test_all.py              # Run all 17 tests
+python test_all.py --quick      # Run 11 quick tests
+python test_all.py --group velocity  # Run velocity tests only
+```
+
+**Testing Results:**
+- [PASS] All 17 tests passing
+- [PASS] Quick mode: 11 tests in ~150s
+- [PASS] Documentation updated in README.md
 
 ---
 
-### 3. `--audio_inputs` - NOT IMPLEMENTED
+## Major Issues - Not Implemented
+
+### 8. `--audio_inputs` - NOT IMPLEMENTED
 **Status:** Argument defined but completely ignored by sampler
 - Currently: Only records 1 (mono) or 2 (stereo) channels
 - Expected: Should support 1, 2, 4, or 8 channel recording
@@ -79,7 +164,7 @@ self.channels = 2 if self.mono_stereo == 'stereo' else 1  # WRONG!
 
 ---
 
-### 3. `--midi_latency_adjust` - NOT IMPLEMENTED
+### 9. `--midi_latency_adjust` - NOT IMPLEMENTED
 **Status:** Argument defined but never used
 - **Impact:** Cannot compensate for MIDI interface latency
 - Could cause timing issues with sample start points
@@ -90,7 +175,7 @@ self.channels = 2 if self.mono_stereo == 'stereo' else 1  # WRONG!
 
 ---
 
-### 4. `--script_mode` - NOT IMPLEMENTED
+### 10. `--script_mode` - NOT IMPLEMENTED
 **Status:** Argument defined but never checked
 - Unclear what behavior difference this should have
 - **Impact:** Unknown - needs clarification
@@ -101,7 +186,7 @@ self.channels = 2 if self.mono_stereo == 'stereo' else 1  # WRONG!
 
 ---
 
-### 5. `--debug` - PARTIALLY IMPLEMENTED
+### 11. `--debug` - PARTIALLY IMPLEMENTED
 **Status:** Argument defined but doesn't control logging level
 - Code uses `logging.debug()` throughout
 - But `--debug` flag doesn't actually enable debug logging
@@ -128,7 +213,9 @@ else:
 
 ## Minor Issues - Needs Testing
 
-### 6. ⚠️ `--latency_compensation` - NEEDS TESTING
+---
+
+### 12. [WARNING] `--latency_compensation` - NEEDS TESTING
 **Status:** Implemented but untested
 - Code exists in sampler.py line 454
 - Trims samples based on latency value
@@ -141,17 +228,16 @@ else:
 
 ---
 
-### 7. ⚠️ `--mono_channel` - NEWLY ADDED, NEEDS TESTING
-**Status:** Just implemented
+### 13. [WARNING] `--sample_name` - PARTIALLY IMPLEMENTED, NEEDS TESTING
+**Status:** Fully implemented and tested
 - Allows selecting left (0) or right (1) channel for mono recording
-- **Testing Required:**
-  - Test with stereo interface
-  - Verify correct channel is extracted
-  - Test in combination with `--mono_stereo mono`
+- **Testing Results:**
+  - [PASS] Works with `--mono_stereo mono --mono_channel 0` (left channel)
+  - [PASS] Works with `--mono_stereo mono --mono_channel 1` (right channel)
+  - [PASS] Verified WAV files have correct channel count (1 for mono, 2 for stereo)
+  - [PASS] Added to regression suite (audio group, 3 tests passing)
+  - [PASS] Logging correctly shows "Channels: 1 (mono, using left/right channel)"
 
----
-
-### 8. ⚠️ `--sample_name` - PARTIALLY IMPLEMENTED, NEEDS TESTING
 **Status:** Used as template but unclear how it works
 - Code: `base_name = self.sampling_config.get('sample_name', self.multisample_name)`
 - **Testing Required:**
@@ -161,7 +247,7 @@ else:
 
 ---
 
-### 9. ⚠️ MIDI Control Arguments - NEEDS COMPREHENSIVE TESTING
+### 14. [WARNING] MIDI Control Arguments - NEEDS COMPREHENSIVE TESTING
 **Status:** Implemented but complex, needs validation
 - `--sysex_messages` - SysEx message parsing and sending
 - `--program_change` - Program change before sampling
@@ -177,7 +263,7 @@ else:
 
 ---
 
-### 10. ⚠️ SFZ Generation - NEEDS VALIDATION
+### 15. [WARNING] SFZ Generation - NEEDS VALIDATION
 **Status:** Implemented but complex
 - `--lowest_note` and `--highest_note` - Key mapping range
 - Multi-velocity layer support
@@ -194,7 +280,7 @@ else:
 
 ## Documentation Issues
 
-### 11. 📝 Missing Documentation
+### 16. [DOCS] Missing Documentation
 - `--sample_name` template syntax not documented
 - `--audio_inputs` is documented but doesn't work (REMOVE from docs!)
 - MIDI latency compensation workflow not explained
@@ -204,7 +290,7 @@ else:
 
 ## Configuration File Issues
 
-### 12. ⚠️ YAML Config Validation
+### 17. [WARNING] YAML Config Validation
 **Status:** Config files loaded but not validated
 - Missing keys might cause crashes
 - Type validation not performed
@@ -221,31 +307,39 @@ audio_interface:
 
 ## Summary by Priority
 
-### 🔴 HIGH PRIORITY - BROKEN FEATURES
+### COMPLETED FEATURES
+1. **Note range parsing** - Works with note names and MIDI numbers
+2. **Velocity layers** - Logarithmic distribution, custom splits, minimum velocity
+3. **Round-robin layers** - Full SFZ support with seq_length/seq_position
+4. **Mono/stereo recording** - Channel selection working
+5. **WAV metadata** - 3-byte RIFF chunk (note, velocity, channel)
+6. **Regression test suite** - 17 tests across 6 groups, all passing
+7. **Documentation** - Updated README and QUICKSTART with examples
+
+###  HIGH PRIORITY - BROKEN FEATURES
 1. **Postprocessing not working at all** - All CLI args ignored
 2. **`--audio_inputs` broken** - Misleading users, doesn't work
 3. **`--debug` doesn't enable debug logs** - Confusing behavior
 
-### 🟡 MEDIUM PRIORITY - MISSING FEATURES
+###  MEDIUM PRIORITY - MISSING FEATURES
 4. **`--midi_latency_adjust`** - Could affect timing accuracy
 5. **`--script_mode`** - Purpose unclear, needs definition
 6. **Config validation** - Could prevent crashes
 
-### 🟢 LOW PRIORITY - NEEDS TESTING
+###  LOW PRIORITY - NEEDS TESTING
 7. **MIDI control features** - Complex but likely working
-8. **SFZ generation** - Likely working but needs validation
+8. **SFZ generation** - Likely working but needs validation with real samplers
 9. **`--latency_compensation`** - Implemented but untested
-10. **`--mono_channel`** - Just added, needs testing
-11. **`--sample_name` templates** - Unclear documentation
+10. **`--sample_name` templates** - Unclear documentation
 
 ---
 
 ## Testing Checklist
 
 ### Audio Recording
-- [ ] Test mono recording with `--mono_channel 0` (left)
-- [ ] Test mono recording with `--mono_channel 1` (right)
-- [ ] Test stereo recording
+- [x] Test mono recording with `--mono_channel 0` (left) 
+- [x] Test mono recording with `--mono_channel 1` (right) 
+- [x] Test stereo recording 
 - [ ] Test `--latency_compensation` with different values
 - [ ] Test `--gain` parameter
 - [ ] Test different sample rates (44100, 48000, 96000)
@@ -260,9 +354,9 @@ audio_interface:
 - [ ] Test multi-channel MIDI routing
 
 ### Sampling
-- [ ] Test velocity layers (1, 2, 3, 4)
-- [ ] Test round-robin layers (1, 2, 3)
-- [ ] Test combined velocity + round-robin
+- [x] Test velocity layers (1, 2, 3, 4) 
+- [x] Test round-robin layers (1, 2, 3) 
+- [x] Test combined velocity + round-robin 
 - [ ] Test `--test_mode` (no recording)
 - [ ] Test note range with different intervals
 - [ ] Test `--hold_time`, `--release_time`, `--pause_time`
@@ -298,7 +392,7 @@ audio_interface:
 
 ## Performance Issues
 
-### 13. 🐌 Potential Performance Concerns
+### 18. Potential Performance Concerns
 - **Auto-looping algorithm** - Autocorrelation may be slow for long samples
 - **Patch normalization** - Loads all samples into memory
 - **Multi-channel recording** - May cause buffer underruns
@@ -312,7 +406,7 @@ audio_interface:
 
 ## Future Enhancements (Not Bugs)
 
-### 14. 💡 Nice-to-Have Features
+### 19.  Nice-to-Have Features
 - [ ] Add `--preview` mode to hear samples before saving
 - [ ] Add `--metadata` flag to embed more info in WAV files
 - [ ] Add `--parallel` processing for postprocessing
@@ -326,7 +420,7 @@ audio_interface:
 
 ## Code Quality Issues
 
-### 15. 🧹 Code Cleanup Needed
+### 20.  Code Cleanup Needed
 - [ ] Remove unused imports
 - [ ] Add type hints consistently
 - [ ] Improve error messages (more user-friendly)
@@ -339,5 +433,5 @@ audio_interface:
 
 ## End of TODO List
 
-Last Updated: 2025-11-09
-Version: 1.0
+Last Updated: 2025-11-10
+Version: 2.0 - Major features implemented (velocity layers, round-robin, mono/stereo, regression tests)

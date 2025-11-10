@@ -1,0 +1,8 @@
+sampling:
+  hold_time: 1.0
+  release_time: 0.5
+  pause_time: 0.5
+  multisample_name: "four_notes_octave_script_note_names_rr"
+  roundrobin_layers: 2
+midi_interface:
+  note_range: {start: C2, end: C5, interval: 12}

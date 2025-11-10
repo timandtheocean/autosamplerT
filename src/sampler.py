@@ -80,6 +80,10 @@ class AutoSampler:
         self.velocity_layers = self.sampling_config.get('velocity_layers', 1)
         self.roundrobin_layers = self.sampling_config.get('roundrobin_layers', 1)
         
+        # Velocity configuration
+        self.velocity_minimum = self.midi_config.get('velocity_minimum', 1)
+        self.velocity_layers_split = self.midi_config.get('velocity_layers_split', None)
+        
         # Processing settings
         self.silence_detection = self.audio_config.get('silence_detection', True)
         self.sample_normalize = self.audio_config.get('sample_normalize', True)
@@ -385,11 +389,10 @@ class AutoSampler:
                 data = bytearray(f.read())
             
             # Create custom 'note' chunk with MIDI data
-            # Format: note (1 byte), velocity (1 byte), round_robin (1 byte), channel (1 byte)
-            note_data = struct.pack('BBBB',
+            # Format: note (1 byte), velocity (1 byte), channel (1 byte)
+            note_data = struct.pack('BBB',
                                    metadata.get('note', 0),
                                    metadata.get('velocity', 127),
-                                   metadata.get('round_robin', 0),
                                    metadata.get('channel', 0))
             
             # RIFF chunk format: chunk_id (4 bytes), size (4 bytes), data
@@ -492,14 +495,34 @@ class AutoSampler:
         Returns:
             MIDI velocity value (1-127)
         """
+        # Use custom split points if provided
+        if self.velocity_layers_split is not None:
+            if layer < len(self.velocity_layers_split):
+                return self.velocity_layers_split[layer]
+            else:
+                return 127  # Fallback
+        
+        # Default behavior: logarithmic distribution (more density at higher velocities)
         if total_layers == 1:
             return 127  # Full velocity for single layer
         
-        # Distribute velocities evenly across range
-        # Layer 0 = softest (e.g., 20), Layer N-1 = loudest (127)
-        min_vel = 20
+        min_vel = self.velocity_minimum
         max_vel = 127
-        velocity = int(min_vel + (max_vel - min_vel) * layer / (total_layers - 1))
+        
+        # Logarithmic curve: velocity feels more "musical"
+        # Uses exponential mapping: velocity grows faster toward the end
+        import math
+        
+        # Normalize layer position (0.0 to 1.0)
+        position = layer / (total_layers - 1)
+        
+        # Apply exponential curve (base 2 works well for velocity)
+        # This gives more samples at higher velocities
+        curve_factor = 2.0
+        curved_position = (math.pow(curve_factor, position) - 1) / (curve_factor - 1)
+        
+        # Map to velocity range
+        velocity = int(min_vel + (max_vel - min_vel) * curved_position)
         return max(1, min(127, velocity))
     
     def generate_sample_filename(self, note: int, velocity: int, rr_index: int = 0) -> str:
@@ -738,19 +761,29 @@ class AutoSampler:
                         
                         # Velocity ranges
                         if len(note_samples) > 1:
-                            if j == 0:
-                                lovel = 0
+                            # Use custom split points if available
+                            if self.velocity_layers_split is not None:
+                                if j == 0:
+                                    lovel = self.velocity_minimum
+                                else:
+                                    lovel = self.velocity_layers_split[j-1] + 1
+                                
+                                hivel = self.velocity_layers_split[j]
                             else:
-                                prev_vel = note_samples[j-1]['velocity']
-                                curr_vel = sample['velocity']
-                                lovel = (prev_vel + curr_vel) // 2
-                            
-                            if j == len(note_samples) - 1:
-                                hivel = 127
-                            else:
-                                curr_vel = sample['velocity']
-                                next_vel = note_samples[j+1]['velocity']
-                                hivel = (curr_vel + next_vel) // 2
+                                # Default behavior: calculate midpoints
+                                if j == 0:
+                                    lovel = 0
+                                else:
+                                    prev_vel = note_samples[j-1]['velocity']
+                                    curr_vel = sample['velocity']
+                                    lovel = (prev_vel + curr_vel) // 2
+                                
+                                if j == len(note_samples) - 1:
+                                    hivel = 127
+                                else:
+                                    curr_vel = sample['velocity']
+                                    next_vel = note_samples[j+1]['velocity']
+                                    hivel = (curr_vel + next_vel) // 2
                             
                             f.write(f"lovel={lovel}\n")
                             f.write(f"hivel={hivel}\n")
@@ -792,7 +825,7 @@ class AutoSampler:
                 logging.info("Test mode: Will overwrite existing files")
                 return True
             
-            print(f"\n⚠️  Multisample folder already exists: {self.multisample_folder}")
+            print(f"\nWARNING: Multisample folder already exists: {self.multisample_folder}")
             print("This folder may contain samples from a previous session.")
             print("\nOptions:")
             print("  1) Delete folder and continue")

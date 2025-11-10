@@ -112,14 +112,14 @@ class PostProcessor:
                 
                 # Write processed file
                 self._write_wav_with_metadata(path, audio_data, samplerate, bitdepth, metadata)
-                print(f"  ✓ Saved")
+                print(f"  [SAVED]")
                 
             except Exception as e:
-                print(f"  ✗ Error processing {path}: {e}")
+                print(f"  [ERROR] Error processing {path}: {e}")
                 import traceback
                 traceback.print_exc()
         
-        print(f"\n✓ Processing complete!")
+        print(f"\n[SUCCESS] Processing complete!")
     
     def _create_backups(self, sample_paths: List[str]):
         """Create backup copies of samples before processing."""
@@ -127,7 +127,7 @@ class PostProcessor:
         for path in sample_paths:
             backup_path = path.replace('.wav', '_backup.wav')
             shutil.copy2(path, backup_path)
-        print(f"✓ Created {len(sample_paths)} backups")
+        print(f"[SUCCESS] Created {len(sample_paths)} backups")
     
     def _read_wav_with_metadata(self, path: str) -> Tuple[np.ndarray, int, int, Dict]:
         """
@@ -433,7 +433,7 @@ class PostProcessor:
             except Exception as e:
                 print(f"Warning: Could not normalize {path}: {e}")
         
-        print("✓ Patch normalization complete")
+        print("[SUCCESS] Patch normalization complete")
     
     def _normalize_audio(self, audio_data: np.ndarray, target_peak: float = 0.95) -> np.ndarray:
         """Normalize audio to target peak level."""

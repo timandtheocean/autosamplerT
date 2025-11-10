@@ -114,6 +114,10 @@ def get_arg_parser():
                      help='Interval between notes (1=chromatic, 12=octaves)')
     midi.add_argument('--velocity_layers', type=int, metavar='N',
                      help='Number of velocity layers')
+    midi.add_argument('--velocity_minimum', type=int, metavar='N',
+                     help='Minimum velocity value (default: 1, range: 1-127)')
+    midi.add_argument('--velocity_layers_split', type=str, metavar='SPLITS',
+                     help='Comma-separated velocity split points (e.g., "40,100,120,127" for 4 layers)')
     midi.add_argument('--roundrobin_layers', type=int, metavar='N',
                      help='Number of round-robin layers')
     midi.add_argument('--midi_latency_adjust', type=float, metavar='MS',
@@ -151,9 +155,9 @@ def get_arg_parser():
     postprocessing.add_argument('--process_folder', type=str, metavar='PATH',
                                help='Process samples in specified folder path')
     postprocessing.add_argument('--patch_normalize', action='store_true',
-                               help='Normalize entire patch to consistent peak level')
+                               help='Normalize entire patch: all samples gain same amount to consistent peak level (maintains relative dynamics)')
     postprocessing.add_argument('--sample_normalize', action='store_true',
-                               help='Normalize individual samples')
+                               help='Normalize individual samples: each sample maximized independently (destroys relative dynamics, good for drums)')
     postprocessing.add_argument('--trim_silence', action='store_true',
                                help='Trim silence from start/end of samples')
     postprocessing.add_argument('--auto_loop', action='store_true',
@@ -223,6 +227,23 @@ def main():
                     if section not in config:
                         config[section] = {}
                     config[section].update(script_config[section])
+            
+            # Special handling for note_range in midi_interface - convert note names to MIDI numbers
+            if 'midi_interface' in script_config and 'note_range' in script_config['midi_interface']:
+                note_range = script_config['midi_interface']['note_range']
+                if isinstance(note_range, dict):
+                    if 'start' in note_range:
+                        start_midi = note_name_to_midi(str(note_range['start']))
+                        if start_midi is not None:
+                            config['midi_interface']['note_range']['start'] = start_midi
+                        else:
+                            print(f"Warning: Invalid start note '{note_range['start']}' in script")
+                    if 'end' in note_range:
+                        end_midi = note_name_to_midi(str(note_range['end']))
+                        if end_midi is not None:
+                            config['midi_interface']['note_range']['end'] = end_midi
+                        else:
+                            print(f"Warning: Invalid end note '{note_range['end']}' in script")
 
     # Merge CLI args into config (CLI args override everything)
     def update_config_from_args(cfg, args_dict, section):
@@ -272,6 +293,40 @@ def main():
         if args.note_range_interval is not None:
             note_range_dict['interval'] = args.note_range_interval
     
+    # Parse and validate velocity_layers_split if provided
+    velocity_splits = None
+    if args.velocity_layers_split is not None:
+        try:
+            velocity_splits = [int(v.strip()) for v in args.velocity_layers_split.split(',')]
+            
+            # Validate: must match velocity_layers - 1 (splits are boundaries between layers)
+            expected_splits = args.velocity_layers - 1 if args.velocity_layers is not None else len(velocity_splits) + 1
+            if args.velocity_layers is not None and len(velocity_splits) != expected_splits:
+                print(f"Error: velocity_layers_split count ({len(velocity_splits)}) must be velocity_layers - 1")
+                print(f"  For {args.velocity_layers} layers, you need {expected_splits} split points")
+                print(f"  Split points provided: {velocity_splits}")
+                sys.exit(1)
+            
+            # Validate: must be ascending
+            if velocity_splits != sorted(velocity_splits):
+                print(f"Error: velocity_layers_split values must be in ascending order")
+                print(f"  Provided: {velocity_splits}")
+                print(f"  Expected: {sorted(velocity_splits)}")
+                sys.exit(1)
+            
+            # Validate: must be in valid range
+            velocity_min = args.velocity_minimum if args.velocity_minimum is not None else 1
+            for v in velocity_splits:
+                if v < velocity_min or v > 127:
+                    print(f"Error: velocity_layers_split values must be between {velocity_min} and 127")
+                    print(f"  Invalid value: {v}")
+                    sys.exit(1)
+                    
+        except ValueError as e:
+            print(f"Error: Invalid velocity_layers_split format: '{args.velocity_layers_split}'")
+            print(f"  Expected comma-separated integers, e.g., '40,100,120,127'")
+            sys.exit(1)
+    
     update_config_from_args(config, {
         'midi_input_name': args.midi_input_name,
         'midi_output_name': args.midi_output_name,
@@ -280,6 +335,8 @@ def main():
         'program_change': args.program_change,
         'cc_messages': args.cc_messages,
         'note_range': note_range_dict,
+        'velocity_minimum': args.velocity_minimum,
+        'velocity_layers_split': velocity_splits,
         'midi_latency_adjust': args.midi_latency_adjust
     }, 'midi_interface')
     
@@ -326,10 +383,10 @@ def main():
         success = sampler.run()
         
         if success:
-            print("\n✓ Sampling completed successfully!")
+            print("\nSampling completed successfully!")
             print(f"Output folder: {sampler.output_folder}")
         else:
-            print("\n✗ Sampling failed - check logs for details")
+            print("\nSampling failed - check logs for details")
             sys.exit(1)
     except ImportError as e:
         print(f"Error: Missing dependencies - {e}")

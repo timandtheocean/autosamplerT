@@ -86,11 +86,11 @@ def parse_fmt_chunk(data):
 
 def parse_note_chunk(data):
     """Parse the custom 'note' chunk with MIDI data."""
-    if len(data) < 4:
+    if len(data) < 3:
         print(f"    Invalid note chunk (size={len(data)})")
         return
     
-    note, velocity, round_robin, channel = struct.unpack('BBBB', data[:4])
+    note, velocity, channel = struct.unpack('BBB', data[:3])
     
     # Convert MIDI note to name
     note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
@@ -100,7 +100,6 @@ def parse_note_chunk(data):
     print(f"    *** MIDI Metadata ***")
     print(f"    Note: {note} ({note_name}{octave})")
     print(f"    Velocity: {velocity}")
-    print(f"    Round-Robin: {round_robin}")
     print(f"    Channel: {channel}")
 
 

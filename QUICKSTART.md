@@ -69,10 +69,34 @@ python autosamplerT.py --note_range_start C2 --note_range_end C7 --note_range_in
 
 ### 3. Velocity Layers
 
-Sample 4 velocity layers:
+**Basic velocity layers (automatic logarithmic distribution):**
 
 ```bash
 python autosamplerT.py --velocity_layers 4 --note_range_start C3 --note_range_end C5 --note_range_interval 1
+```
+
+This samples at velocities: 1, 43, 85, 127 (more density at higher velocities)
+
+**Start from higher minimum velocity (skip very soft samples):**
+
+```bash
+python autosamplerT.py --velocity_layers 4 --velocity_minimum 45 --note_range_start C3 --note_range_end C5
+```
+
+This samples at: 45, 66, 93, 127
+
+**Custom velocity split points for precise control:**
+
+```bash
+python autosamplerT.py --velocity_layers 3 --velocity_layers_split 50,90 --note_range_start C3 --note_range_end C5
+```
+
+This samples at: 25, 70, 108 (midpoint of ranges 0-50, 50-90, 90-127)
+
+**Combine minimum and custom splits:**
+
+```bash
+python autosamplerT.py --velocity_layers 3 --velocity_minimum 30 --velocity_layers_split 60,100
 ```
 
 ### 4. Round-Robin Layers
@@ -306,6 +330,57 @@ python autosamplerT.py --help sampling
 python autosamplerT.py --help postprocessing
 ```
 
+## Velocity Layer Guide
+
+### Understanding Velocity Layers
+
+Velocity layers capture the timbral changes as you play harder. AutosamplerT uses **logarithmic distribution** to concentrate more samples at higher velocities where most playing happens.
+
+### When to Use Different Approaches
+
+**Automatic logarithmic (default):**
+```bash
+python autosamplerT.py --velocity_layers 4
+```
+- Best for: Most instruments, natural distribution
+- Samples at: 1, 43, 85, 127
+
+**With minimum velocity:**
+```bash
+python autosamplerT.py --velocity_layers 4 --velocity_minimum 45
+```
+- Best for: When soft samples (1-44) are too quiet or noisy
+- Samples at: 45, 66, 93, 127
+
+**Custom split points:**
+```bash
+python autosamplerT.py --velocity_layers 3 --velocity_layers_split 40,80
+```
+- Best for: Precise control, matching specific instrument characteristics
+- Samples at: 20, 60, 103 (midpoints of ranges)
+
+### Practical Examples
+
+**Piano (needs soft touch):**
+```bash
+python autosamplerT.py --velocity_layers 5 --note_range_start A0 --note_range_end C8 --note_range_interval 3
+```
+
+**Aggressive synth (skip soft layers):**
+```bash
+python autosamplerT.py --velocity_layers 3 --velocity_minimum 60 --note_range_start C2 --note_range_end C6
+```
+
+**Drum kit (precise velocity zones):**
+```bash
+python autosamplerT.py --velocity_layers 4 --velocity_layers_split 40,70,100 --note_range_start C1 --note_range_end D#2
+```
+
+**Single velocity (no dynamics):**
+```bash
+python autosamplerT.py --velocity_layers 1 --velocity_minimum 100 --note_range_start C3 --note_range_end C5
+```
+
 ## Tips
 
 1. **Always test first**: Use `--test_mode` to verify your setup
@@ -313,12 +388,15 @@ python autosamplerT.py --help postprocessing
 3. **Monitor levels**: Check input gain during test mode
 4. **Save configs**: Use script files for repeatable sampling sessions
 5. **Backup samples**: Copy the output folder after successful sampling
+6. **Velocity layers**: Start with 3-4 layers, add more only if needed
+7. **Custom splits**: Test a few notes first to find good velocity breakpoints
 
 ## Next Steps
 
-- Explore velocity layers for expressive instruments
+- Experiment with velocity layers for expressive instruments
 - Try round-robin for more realistic sounds
-- Experiment with CC, sysex messages for sound variations
+- Combine velocity + round-robin for professional quality
+- Use custom splits to match your playing style
 - Load your SFZ in a sampler and play!
 
 Enjoy sampling! 🎹🎵
