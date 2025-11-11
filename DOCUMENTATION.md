@@ -43,7 +43,7 @@ Learn how to configure audio and MIDI devices for sampling.
 
 ---
 
-### 2. [MIDI Control](doc/MIDI_CONTROL_FEATURE.md)
+### 2. [MIDI Control](doc/MIDI_CONTROL.md)
 Advanced MIDI control for per-layer message transmission.
 
 **Topics covered:**
@@ -52,6 +52,8 @@ Advanced MIDI control for per-layer message transmission.
 - Structured SysEx format with header reuse
 - Configurable message delays
 - Testing with virtual MIDI cables
+- Practical use cases and examples
+- Troubleshooting and best practices
 
 **When to use:** Sampling hardware synths with different patches, CC sweeps, filter movements, program changes per layer
 
