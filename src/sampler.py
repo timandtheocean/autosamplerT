@@ -26,11 +26,10 @@ from typing import Optional, Dict, List, Tuple
 import json
 
 # For WAV file writing with metadata
-from scipy.io import wavfile
 import struct
 
 # MIDI Control module
-from src.sampler_midicontrol import MIDIController, parse_cc_messages, parse_cc14_messages, parse_sysex_messages
+from src.sampler_midicontrol import MIDIController, parse_sysex_messages
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 
