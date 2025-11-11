@@ -482,6 +482,122 @@ audio_interface:
 
 ---
 
+## Testing Infrastructure
+
+### 21. 📋 Add pytest for Unit Tests (WHILE keeping integration tests)
+**Status:** Planned - complement existing integration tests
+- **Current State:**
+  - ✅ Integration tests working well (`tests/test_all.py` - 17 tests, 6 groups)
+  - ❌ No unit tests for individual functions
+  
+**Goal:** Add pytest-based unit tests alongside existing integration tests
+
+**Proposed Structure:**
+```
+tests/
+├── integration/          # Move existing tests here
+│   ├── test_all.py      # Current integration test suite
+│   ├── test_all.ps1
+│   ├── test_autoloop.py
+│   └── ...
+├── unit/                # New unit tests
+│   ├── test_velocity_calculation.py
+│   ├── test_midi_parsing.py
+│   ├── test_sfz_generation.py
+│   ├── test_note_name_parsing.py
+│   └── test_audio_processing.py
+├── conftest.py          # Shared pytest fixtures
+└── pytest.ini           # Pytest configuration
+```
+
+**Unit Test Targets:**
+1. **autosamplerT.py:**
+   - `note_name_to_midi()` - Test note name parsing (C4, A#3, Bb5, etc.)
+   - Argument validation logic
+   - Config merging logic
+
+2. **sampler_velocity.py:**
+   - `calculate_velocity_values()` - Test logarithmic distribution
+   - `parse_velocity_split()` - Test split point parsing
+   - Velocity validation logic
+
+3. **sampler_midicontrol.py:**
+   - `parse_cc_messages()` - Test semicolon-separated format
+   - `parse_cc14_messages()` - Test MSB/LSB parsing
+   - `parse_sysex_messages()` - Test hex string parsing
+
+4. **SFZ generation:**
+   - Region generation logic
+   - Velocity layer mapping
+   - Round-robin seq_position logic
+
+5. **Audio processing:**
+   - Trim silence detection
+   - Auto-loop point finding
+   - Normalization calculations
+
+**Benefits:**
+- ✅ Fast feedback (unit tests run in milliseconds)
+- ✅ Precise error location (know exact function failing)
+- ✅ Test edge cases easily (invalid inputs, boundary conditions)
+- ✅ Code coverage metrics
+- ✅ Mocking support (test without audio hardware)
+- ✅ Parallel test execution
+- ✅ CI/CD integration ready
+- ✅ Keep existing integration tests for end-to-end validation
+
+**Implementation Steps:**
+1. Install pytest: `pip install pytest pytest-cov`
+2. Create `tests/conftest.py` with shared fixtures
+3. Create `tests/pytest.ini` for configuration
+4. Move existing tests to `tests/integration/`
+5. Create `tests/unit/` with initial unit tests
+6. Add pytest commands to documentation
+7. Optional: Add GitHub Actions for CI
+
+**Example Unit Test:**
+```python
+# tests/unit/test_note_name_parsing.py
+import pytest
+from autosamplerT import note_name_to_midi
+
+def test_note_name_to_midi_basic():
+    assert note_name_to_midi("C4") == 60
+    assert note_name_to_midi("A4") == 69
+
+def test_note_name_to_midi_sharps():
+    assert note_name_to_midi("C#4") == 61
+    assert note_name_to_midi("A#3") == 58
+
+def test_note_name_to_midi_flats():
+    assert note_name_to_midi("Db4") == 61
+    assert note_name_to_midi("Bb3") == 58
+
+def test_note_name_to_midi_invalid():
+    assert note_name_to_midi("X4") is None
+    assert note_name_to_midi("C99") is None
+```
+
+**Running Tests:**
+```bash
+# Run all tests (unit + integration)
+pytest
+
+# Run only unit tests (fast)
+pytest tests/unit/
+
+# Run only integration tests
+pytest tests/integration/
+
+# Run with coverage
+pytest --cov=src --cov-report=html
+
+# Run in parallel
+pytest -n auto
+```
+
+---
+
 ## End of TODO List
 
 Last Updated: 2025-11-10
