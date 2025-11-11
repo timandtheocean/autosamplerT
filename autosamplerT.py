@@ -67,8 +67,8 @@ def get_arg_parser():
     main_group.add_argument('--setup', nargs='?', const='all', choices=['audio','midi','all'],
                            help='Run setup for interfaces: audio, midi, or all (default: all)')
     main_group.add_argument('--help', nargs='?', const='main', default=None, 
-                           choices=['main', 'audio', 'midi', 'sampling', 'postprocessing'], 
-                           help='Show help for main, audio, midi, sampling, or postprocessing options')
+                           choices=['main', 'audio', 'midi', 'sampling', 'postprocessing', 'examples'], 
+                           help='Show help for main, audio, midi, sampling, postprocessing, or examples')
 
     # Audio options
     audio = parser.add_argument_group('audio', 'Audio interface options')
@@ -187,8 +187,94 @@ def get_arg_parser():
 def show_help(parser, section):
     """Show help for specific section or main help."""
     if section == 'main':
-        # Show all help
-        parser.print_help()
+        # Show custom main help with usage examples
+        print("\nAutosamplerT - Crossplatform hardware synth autosampler\n")
+        print("USAGE:")
+        print("  python autosamplerT.py [OPTIONS]\n")
+        print("COMMON WORKFLOWS:\n")
+        print("  First-time setup:")
+        print("    python autosamplerT.py --setup all\n")
+        print("  Quick sampling:")
+        print("    python autosamplerT.py --note_range_start C3 --note_range_end C5\n")
+        print("  Script-based sampling:")
+        print("    python autosamplerT.py --script conf/my_script.yaml\n")
+        print("  Test without recording:")
+        print("    python autosamplerT.py --test_mode --note_range_start C4 --note_range_end E4\n")
+        print("  Post-process samples:")
+        print("    python autosamplerT.py --process MySynth --patch_normalize --trim_silence\n")
+        print("HELP TOPICS:")
+        print("  python autosamplerT.py --help examples       Show practical sampling examples")
+        print("  python autosamplerT.py --help audio          Show audio interface options")
+        print("  python autosamplerT.py --help midi           Show MIDI interface and control options")
+        print("  python autosamplerT.py --help sampling       Show sampling configuration options")
+        print("  python autosamplerT.py --help postprocessing Show post-processing options\n")
+        print("MAIN OPTIONS:")
+        for group in parser._action_groups:
+            if group.title == 'main':
+                for action in group._group_actions:
+                    if action.dest == 'help':
+                        continue  # Skip --help itself since we're showing custom help
+                    opts = ', '.join(action.option_strings)
+                    help_text = action.help or ''
+                    if action.metavar:
+                        opts += f' {action.metavar}'
+                    print(f"  {opts:30} {help_text}")
+        print("\nFor complete documentation, see: doc/DOCUMENTATION.md")
+        print("For quick start guide, see: doc/QUICKSTART.md\n")
+    elif section == 'examples':
+        # Show practical examples
+        print("\nAutosamplerT - Practical Examples\n")
+        
+        print("1. SAMPLE 2 NOTES PER OCTAVE (whole keyboard)")
+        print("   Sample every major 6th interval (9 semitones):")
+        print("   python autosamplerT.py --note_range_start C2 --note_range_end C7 --note_range_interval 9\n")
+        
+        print("2. SAMPLE 1 NOTE FOR WHOLE KEYBOARD")
+        print("   Single sample, no pitch mapping (good for drones/pads):")
+        print("   python autosamplerT.py --note_range_start C4 --note_range_end C4 --note_range_interval 1\n")
+        
+        print("3. EVERY 5TH (perfect 4th intervals)")
+        print("   Sample every 5 semitones across the keyboard:")
+        print("   python autosamplerT.py --note_range_start C2 --note_range_end C7 --note_range_interval 5\n")
+        
+        print("4. ROUND-ROBIN LAYERS")
+        print("   3 round-robin variations for more realistic playback:")
+        print("   python autosamplerT.py --note_range_start C3 --note_range_end C5 --roundrobin_layers 3\n")
+        
+        print("5. VELOCITY LAYERS")
+        print("   4 velocity layers with automatic logarithmic distribution:")
+        print("   python autosamplerT.py --note_range_start C3 --note_range_end C5 --velocity_layers 4\n")
+        
+        print("6. VELOCITY + ROUND-ROBIN COMBINED")
+        print("   3 velocity layers × 2 round-robin = realistic and expressive:")
+        print("   python autosamplerT.py --note_range_start C3 --note_range_end C5 \\")
+        print("     --velocity_layers 3 --roundrobin_layers 2\n")
+        
+        print("7. RUN A SCRIPT")
+        print("   Use YAML script for complex configurations:")
+        print("   python autosamplerT.py --script conf/my_synth.yaml\n")
+        
+        print("8. CUSTOM VELOCITY SPLITS")
+        print("   Precise control over velocity breakpoints:")
+        print("   python autosamplerT.py --note_range_start C3 --note_range_end C5 \\")
+        print("     --velocity_layers 3 --velocity_layers_split 40,80\n")
+        
+        print("9. SKIP SOFT SAMPLES")
+        print("   Start from higher velocity (skip noisy soft samples):")
+        print("   python autosamplerT.py --note_range_start C3 --note_range_end C5 \\")
+        print("     --velocity_layers 3 --velocity_minimum 50\n")
+        
+        print("10. WITH MIDI CONTROL")
+        print("    Send CC and program change before sampling:")
+        print("    python autosamplerT.py --note_range_start C3 --note_range_end C5 \\")
+        print("      --program_change 10 --cc_messages \"7,127;74,64\"\n")
+        
+        print("11. AUTO-LOOPING (Post-Processing)")
+        print("    Find loop points and apply crossfade to existing samples:")
+        print("    python autosamplerT.py --process MySynth --auto_loop --crossfade_loop 20\n")
+        
+        print("TIP: Add --test_mode to any example to verify without recording")
+        print("     Example: python autosamplerT.py --test_mode --note_range_start C3 --note_range_end C5\n")
     else:
         # Find the specific group
         for group in parser._action_groups:
@@ -201,9 +287,10 @@ def show_help(parser, section):
                     if action.metavar:
                         opts += f' {action.metavar}'
                     print(f"  {opts:30} {help_text}")
+                print()  # Add blank line at end
                 return
         print(f"Unknown help section: {section}")
-        print("Available sections: main, audio, midi, sampling")
+        print("Available sections: main, audio, midi, sampling, postprocessing, examples")
 
 def main():
     parser = get_arg_parser()
