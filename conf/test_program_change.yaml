@@ -1,0 +1,55 @@
+# Test MIDI Program Change
+# Tests sending program change messages per layer
+
+midi_interface:
+  note_range: {start: 60, end: 60, interval: 1}  # Middle C only
+
+sampling:
+  hold_time: 0.5
+  release_time: 0.1
+  pause_time: 0.2
+  multisample_name: "Program_Change_Test"
+  velocity_layers: 1
+  roundrobin_layers: 4
+  output_format: "sfz"
+  output_folder: "./output"
+  test_mode: false
+  script_mode: true
+  lowest_note: 0
+  highest_note: 127
+
+sampling_midi:
+  midi_channels: [0]
+  program_change: null
+  cc_messages: {}
+  cc14_messages: {}
+  sysex_messages: []
+
+  roundrobin_midi_control:
+    # Layer 0: Program 0 (Piano)
+    - roundrobin_layer: 0
+      midi_channel: 0
+      program_change: 0
+      cc_messages: {}
+      sysex_messages: []
+    
+    # Layer 1: Program 24 (Nylon Guitar)
+    - roundrobin_layer: 1
+      midi_channel: 0
+      program_change: 24
+      cc_messages: {}
+      sysex_messages: []
+    
+    # Layer 2: Program 40 (Violin)
+    - roundrobin_layer: 2
+      midi_channel: 0
+      program_change: 40
+      cc_messages: {}
+      sysex_messages: []
+    
+    # Layer 3: Program 80 (Square Wave)
+    - roundrobin_layer: 3
+      midi_channel: 0
+      program_change: 80
+      cc_messages: {}
+      sysex_messages: []

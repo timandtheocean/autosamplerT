@@ -1,0 +1,89 @@
+# Test SysEx Structured Format
+# Tests header reuse, value ranges, and multiple messages per layer
+
+midi_interface:
+  note_range: {start: 60, end: 60, interval: 1}  # Middle C only
+
+sampling:
+  hold_time: 0.5
+  release_time: 0.1
+  pause_time: 0.2
+  multisample_name: "SysEx_Structured_Test"
+  velocity_layers: 1
+  roundrobin_layers: 7
+  output_format: "sfz"
+  output_folder: "./output"
+  test_mode: false
+  script_mode: true
+  lowest_note: 0
+  highest_note: 127
+
+sampling_midi:
+  midi_channels: [0]
+  program_change: null
+  cc_messages: {}
+  cc14_messages: {}
+  sysex_messages: []
+
+  roundrobin_midi_control:
+    # Layer 0: Full structured format with header
+    - roundrobin_layer: 0
+      midi_channel: 0
+      cc_messages: {}
+      sysex_messages:
+        - header: "43 10 7F"  # Example header (Yamaha-style)
+          controller: "10"     # Controller 0x10 (16)
+          value: 0             # Min value
+    
+    # Layer 1: Reuse header from layer 0
+    - roundrobin_layer: 1
+      midi_channel: 0
+      cc_messages: {}
+      sysex_messages:
+        - controller: "10"
+          value: 32
+    
+    # Layer 2: Reuse header, different value
+    - roundrobin_layer: 2
+      midi_channel: 0
+      cc_messages: {}
+      sysex_messages:
+        - controller: "10"
+          value: 64
+    
+    # Layer 3: Reuse header, max value
+    - roundrobin_layer: 3
+      midi_channel: 0
+      cc_messages: {}
+      sysex_messages:
+        - controller: "10"
+          value: 127
+    
+    # Layer 4: New header with different controller
+    - roundrobin_layer: 4
+      midi_channel: 0
+      cc_messages: {}
+      sysex_messages:
+        - header: "43 10 7F"
+          controller: "11"     # Different controller
+          value: 50
+    
+    # Layer 5: Multiple messages per layer
+    - roundrobin_layer: 5
+      midi_channel: 0
+      cc_messages: {}
+      sysex_messages:
+        - header: "43 10 7F"
+          controller: "10"
+          value: 100
+        - controller: "11"     # Reuse header
+          value: 100
+        - controller: "12"     # Reuse header again
+          value: 100
+    
+    # Layer 6: Raw format bypass
+    - roundrobin_layer: 6
+      midi_channel: 0
+      cc_messages: {}
+      sysex_messages:
+        - raw: "43 10 7F 13 7F"  # Raw hex data (will get F0/F7 wrapper)

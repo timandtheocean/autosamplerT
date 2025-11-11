@@ -1,0 +1,74 @@
+# Comprehensive Test Suite for MIDI Control Features
+# Tests all MIDI message types with OP-1 Field
+
+midi_interface:
+  note_range: {start: 60, end: 62, interval: 1}  # C4, C#4, D4 - small range for testing
+
+sampling:
+  hold_time: 0.5
+  release_time: 0.1
+  pause_time: 0.3
+  multisample_name: "OP1_Test_Suite"
+  velocity_layers: 3
+  roundrobin_layers: 4
+  output_format: "sfz"
+  output_folder: "./output"
+  test_mode: false
+  script_mode: true
+  lowest_note: 0
+  highest_note: 127
+
+sampling_midi:
+  midi_channels: [0]
+  program_change: null
+  cc_messages: {}
+  cc14_messages: {}
+  sysex_messages: []
+
+  # Velocity layers with CC control (filter sweep)
+  velocity_midi_control:
+    - velocity_layer: 0
+      midi_channel: 0
+      cc_messages: {74: 30}  # Brightness/Filter low
+      sysex_messages: []
+    
+    - velocity_layer: 1
+      midi_channel: 0
+      cc_messages: {74: 80}  # Brightness/Filter medium
+      sysex_messages: []
+    
+    - velocity_layer: 2
+      midi_channel: 0
+      cc_messages: {74: 127}  # Brightness/Filter high
+      sysex_messages: []
+
+  # Round-robin layers with mixed MIDI control
+  roundrobin_midi_control:
+    # Layer 0: Program change + CC
+    - roundrobin_layer: 0
+      midi_channel: 0
+      program_change: 0
+      cc_messages: {1: 0}  # Mod wheel off
+      sysex_messages: []
+    
+    # Layer 1: Different program + CC
+    - roundrobin_layer: 1
+      midi_channel: 0
+      program_change: 1
+      cc_messages: {1: 50}  # Mod wheel mid
+      sysex_messages: []
+    
+    # Layer 2: CC only
+    - roundrobin_layer: 2
+      midi_channel: 0
+      cc_messages: {1: 100, 7: 100}  # Mod + Volume
+      sysex_messages: []
+    
+    # Layer 3: SysEx structured format
+    - roundrobin_layer: 3
+      midi_channel: 0
+      cc_messages: {1: 127}  # Mod wheel max
+      sysex_messages:
+        - header: "00 20 76"  # OP-1 manufacturer ID
+          controller: "01"
+          value: 64

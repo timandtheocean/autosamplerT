@@ -5,4 +5,6 @@ audio_interface:
   samplerate: 44100
 midi_interface:
   midi_input_name: OP-1 0
+  midi_input_valid: true
   midi_output_name: OP-1 1
+  midi_output_valid: true
