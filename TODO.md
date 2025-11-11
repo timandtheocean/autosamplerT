@@ -1,44 +1,41 @@
 # AutosamplerT - TODO List
 
-## Critical Issues - Not Implemented
-
-### 1. Postprocessing Arguments - COMPLETELY NOT IMPLEMENTED
-**Status:** Arguments defined but NO CODE EXECUTION PATH
-- All `--process` and `--process_*` arguments are parsed but never executed
-- No integration between `autosamplerT.py` main() and `postprocess.py`
-- **Impact:** Users cannot use ANY postprocessing features from CLI
-
-**Arguments affected:**
-- `--process NAME` - Process existing multisample by name
-- `--process_folder PATH` - Process samples in folder
-- `--patch_normalize` - Normalize patch (postprocessing mode)
-- `--sample_normalize` - Normalize samples (postprocessing mode)
-- `--trim_silence` - Trim silence (postprocessing mode)
-- `--auto_loop` - Find loop points (postprocessing mode)
-- `--dc_offset_removal` - Remove DC offset (postprocessing mode)
-- `--crossfade_loop MS` - Crossfade loop points
-- `--convert_bitdepth BITS` - Convert bit depth
-- `--dither` - Apply dithering
-- `--backup` - Create backup before processing
-
-**Required Fix:**
-```python
-# In autosamplerT.py main(), need to add before "Run sampling":
-if args.process or args.process_folder:
-    # Import PostProcessor
-    from src.postprocess import PostProcessor
-    
-    # Build operations dict from args
-    # Get sample paths from process_folder or construct from process name
-    # Execute PostProcessor.process_samples()
-    sys.exit(0)
-```
-
 ---
 
-## Implemented Features [COMPLETED]
+## Recently Completed Features ✅
 
-### 2. [COMPLETED] `--note_range` JSON PARSING - FIXED AND TESTED
+### 1. [COMPLETED] Postprocessing - FULLY IMPLEMENTED
+**Status:** Complete with all CLI arguments working
+- All `--process` and `--process_*` arguments now execute correctly
+- Full integration between `autosamplerT.py` main() and `postprocess.py`
+- **Features Working:**
+  - `--process NAME` - Process existing multisample by name
+  - `--process_folder PATH` - Process samples in folder
+  - `--patch_normalize` - Normalize patch (maintains relative dynamics)
+  - `--sample_normalize` - Normalize individual samples
+  - `--trim_silence` - Trim silence from start/end
+  - `--auto_loop` - Find loop points using autocorrelation
+  - `--dc_offset_removal` - Remove DC offset
+  - `--crossfade_loop MS` - Crossfade loop points
+  - `--convert_bitdepth BITS` - Convert bit depth
+  - `--dither` - Apply dithering when converting
+  - `--backup` - Create backup before processing
+
+### 2. [COMPLETED] Help System - REORGANIZED AND ENHANCED
+**Status:** Complete with practical examples and clean organization
+- Main help shows common workflows and links to detailed help
+- New `--help examples` with 11 practical sampling examples
+- Separate help sections: audio, midi, sampling, postprocessing, examples
+- No longer cluttered with all arguments in main view
+
+### 3. [COMPLETED] SysEx Format - SIMPLIFIED
+**Status:** Complete with user-friendly format
+- Users provide data bytes WITHOUT F0/F7 (auto-added by code)
+- Semicolon separates multiple messages: `"43 10 7F 1C 00;41 10 00 20 12"`
+- Works correctly with PowerShell (no JSON escaping issues)
+- CLI and YAML documentation updated
+
+### 4. [COMPLETED] `--note_range` JSON PARSING - FIXED AND TESTED
 **Status:** FIXED - Replaced with separate arguments, fully tested
 - **Old (broken):** `--note_range '{\"start\":60,\"end\":60,\"interval\":1}'`
 - **New (working):** `--note_range_start C4 --note_range_end C4 --note_range_interval 1`
@@ -55,7 +52,7 @@ if args.process or args.process_folder:
 - [PASS] Works: `--note_range_start A#3 --note_range_end C#5 --note_range_interval 3`
 - [PASS] Tested in regression suite (basic group, 4 tests passing)
 
-### 3. [COMPLETED] VELOCITY LAYERS - FULLY IMPLEMENTED AND TESTED
+### 5. [COMPLETED] VELOCITY LAYERS - FULLY IMPLEMENTED AND TESTED
 **Status:** Complete with logarithmic distribution, custom splits, and minimum velocity
 - **Features:**
   - Automatic logarithmic distribution (more density at higher velocities)
@@ -77,7 +74,7 @@ if args.process or args.process_folder:
 - [PASS] Multiple notes × velocity layers
 - [PASS] Added to regression suite (velocity group, 5 tests passing)
 
-### 4. [COMPLETED] ROUND-ROBIN LAYERS - FULLY IMPLEMENTED AND TESTED
+### 6. [COMPLETED] ROUND-ROBIN LAYERS - FULLY IMPLEMENTED AND TESTED
 **Status:** Complete with proper SFZ seq_length/seq_position
 - **Features:**
   - Multiple round-robin layers: `--roundrobin_layers 3`
@@ -90,7 +87,7 @@ if args.process or args.process_folder:
 - [PASS] Combined with velocity layers (3 vel × 2 RR = 6 samples)
 - [PASS] Added to regression suite (roundrobin group, 2 tests; combined group, 2 tests)
 
-### 5. [COMPLETED] MONO/STEREO RECORDING - FULLY IMPLEMENTED AND TESTED
+### 7. [COMPLETED] MONO/STEREO RECORDING - FULLY IMPLEMENTED AND TESTED
 **Status:** Complete with channel selection
 - **Features:**
   - Stereo recording (default): `--mono_stereo stereo`
@@ -103,7 +100,7 @@ if args.process or args.process_folder:
 - [PASS] Stereo: creates 2-channel WAV
 - [PASS] Added to regression suite (audio group, 3 tests passing)
 
-### 6. [COMPLETED] WAV METADATA - IMPLEMENTED (3-BYTE FORMAT)
+### 8. [COMPLETED] WAV METADATA - IMPLEMENTED (3-BYTE FORMAT)
 **Status:** Custom RIFF 'note' chunk with note, velocity, channel
 - **Format:** 3 bytes per chunk (note, velocity, MIDI channel)
 - **Round-robin removed:** Per user request, RR metadata not stored in WAV
@@ -113,7 +110,7 @@ if args.process or args.process_folder:
 - [PASS] Verified with `verify_wav_metadata.py`
 - [PASS] Added to regression suite (metadata group, 1 test)
 
-### 7. [COMPLETED] COMPREHENSIVE REGRESSION TEST SUITE - CREATED
+### 9. [COMPLETED] COMPREHENSIVE REGRESSION TEST SUITE - CREATED
 **Status:** Complete with 17 tests across 6 groups
 - **Test Script:** `test_all.py` (Python) and `test_all.ps1` (PowerShell)
 - **Groups:** basic (4), velocity (5), roundrobin (2), combined (2), audio (3), metadata (1)
@@ -239,16 +236,7 @@ def record_sample(...):
 
 ---
 
-### 10. `--script_mode` - NOT IMPLEMENTED
-**Status:** Argument defined but never checked
-- Unclear what behavior difference this should have
-- **Impact:** Unknown - needs clarification
 
-**Required Clarification:**
-- What should `--script_mode` do differently from normal mode?
-- Should it suppress prompts? Change output format? Batch process?
-
----
 
 ### 11. `--debug` - PARTIALLY IMPLEMENTED
 **Status:** Argument defined but doesn't control logging level
@@ -388,8 +376,7 @@ audio_interface:
 
 ###  MEDIUM PRIORITY - MISSING FEATURES
 4. **`--midi_latency_adjust`** - Could affect timing accuracy
-5. **`--script_mode`** - Purpose unclear, needs definition
-6. **Config validation** - Could prevent crashes
+5. **Config validation** - Could prevent crashes
 
 ###  LOW PRIORITY - NEEDS TESTING
 7. **MIDI control features** - Complex but likely working
@@ -473,11 +460,10 @@ audio_interface:
 
 ### 19.  Nice-to-Have Features
 - [ ] Add `--preview` mode to hear samples before saving
-- [ ] Add `--metadata` flag to embed more info in WAV files
 - [ ] Add `--parallel` processing for postprocessing
 - [ ] Add progress bars for long operations
 - [ ] Add `--resume` to continue interrupted sampling
-- [ ] Add `--export` formats beyond WAV/SFZ (EXS24, Kontakt)
+- [ ] Add `--export` formats beyond WAV/SFZ (EXS24, Ableton)
 - [ ] Add spectrum analyzer for noise floor detection
 - [ ] Add automatic gain staging for consistent levels
 

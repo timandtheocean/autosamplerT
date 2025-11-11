@@ -65,6 +65,5 @@ sampling:
   output_format: "sfz"
   output_folder: "./output"
   test_mode: false
-  script_mode: true
   lowest_note: 0
   highest_note: 127

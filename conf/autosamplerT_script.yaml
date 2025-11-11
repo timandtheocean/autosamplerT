@@ -77,7 +77,6 @@ sampling:
   auto_looping: true
   wav_meta: true
   test_mode: false
-  script_mode: false
   output_format: "sfz"
   output_folder: "./output"
   lowest_note: 0

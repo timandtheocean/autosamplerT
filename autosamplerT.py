@@ -140,8 +140,6 @@ def get_arg_parser():
                          help='Multisample name')
     sampling.add_argument('--test_mode', action='store_true',
                          help='Run in test mode (no recording)')
-    sampling.add_argument('--script_mode', action='store_true',
-                         help='Run in script/batch mode')
     sampling.add_argument('--output_format', type=str, metavar='FMT',
                          choices=['wav', 'sfz'], help='Output format (wav, sfz)')
     sampling.add_argument('--output_folder', type=str, metavar='PATH',
@@ -454,7 +452,6 @@ def main():
         'auto_looping': get_arg_if_set(args, 'auto_looping'),
         'wav_meta': get_arg_if_set(args, 'wav_meta'),
         'test_mode': args.test_mode if args.test_mode else None,
-        'script_mode': args.script_mode if args.script_mode else None,
         'output_format': args.output_format,
         'output_folder': args.output_folder,
         'lowest_note': args.lowest_note,
