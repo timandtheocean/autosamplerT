@@ -2,6 +2,24 @@
 
 Complete documentation for AutosamplerT - an advanced automatic sampler with MIDI control capabilities.
 
+## Installation
+
+**New to AutosamplerT? Start here!**
+
+We provide automated installation scripts for all platforms:
+
+- **[INSTALL.md](INSTALL.md)** - Complete installation guide with automated and manual instructions
+- **Windows:** Run `install.ps1` in PowerShell - handles Python installation via winget
+- **Linux:** Run `install.sh` - supports Ubuntu, Fedora, Arch, openSUSE, and more
+- **macOS:** Run `install-mac.sh` - includes Homebrew integration and audio libraries
+
+All scripts automatically:
+- ✓ Detect and install Python 3.8+ if needed
+- ✓ Install system audio libraries (ALSA, JACK, PortAudio)
+- ✓ Create virtual environment
+- ✓ Install all Python dependencies
+- ✓ Verify installation and test functionality
+
 ## Quick Links
 
 - [README](README.md) - Project overview and quick start
