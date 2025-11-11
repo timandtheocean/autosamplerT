@@ -488,7 +488,7 @@ class AutoSampler:
         recording_complete = threading.Event()
         audio_result = [None]
         
-        def record_thread():
+        def record_thread() -> None:
             audio_result[0] = self.record_audio(total_duration)
             recording_complete.set()
         
@@ -1101,7 +1101,7 @@ class AutoSampler:
             self.cleanup()
 
 
-def main():
+def main() -> None:
     """Example usage of AutoSampler."""
     import yaml
     

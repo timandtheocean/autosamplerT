@@ -2,24 +2,25 @@ import mido
 import logging
 import yaml
 import os
+from typing import Tuple, List, Optional
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), '../conf/autosamplerT_config.yaml')
 
 class MidiInterfaceManager:
-    def __init__(self):
-        self.input_name = None
-        self.output_name = None
+    def __init__(self) -> None:
+        self.input_name: Optional[str] = None
+        self.output_name: Optional[str] = None
 
-    def list_midi_devices(self):
+    def list_midi_devices(self) -> Tuple[List[str], List[str]]:
         inputs = mido.get_input_names()
         outputs = mido.get_output_names()
         logging.debug(f"Available MIDI input devices: {inputs}")
         logging.debug(f"Available MIDI output devices: {outputs}")
         return inputs, outputs
 
-    def set_midi_input(self, name):
+    def set_midi_input(self, name: str) -> None:
         if name in mido.get_input_names():
             self.input_name = name
             logging.info(f"MIDI input set to: {name}")
@@ -27,7 +28,7 @@ class MidiInterfaceManager:
             logging.error(f"MIDI input device not found: {name}")
             raise ValueError(f"MIDI input device not found: {name}")
 
-    def set_midi_output(self, name):
+    def set_midi_output(self, name: str) -> None:
         if name in mido.get_output_names():
             self.output_name = name
             logging.info(f"MIDI output set to: {name}")
@@ -35,12 +36,12 @@ class MidiInterfaceManager:
             logging.error(f"MIDI output device not found: {name}")
             raise ValueError(f"MIDI output device not found: {name}")
 
-    def verify_settings(self):
+    def verify_settings(self) -> None:
         logging.info(f"Current MIDI input: {self.input_name}")
         logging.info(f"Current MIDI output: {self.output_name}")
 
 
-def main():
+def main() -> None:
     """Main function to demonstrate MIDI interface manager."""
     manager = MidiInterfaceManager()
     

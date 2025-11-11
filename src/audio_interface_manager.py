@@ -2,19 +2,20 @@ import sounddevice as sd
 import logging
 import yaml
 import os
+from typing import Dict, Any, List, Tuple
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), '../conf/autosamplerT_config.yaml')
 
-def load_config():
+def load_config() -> Dict[str, Any]:
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, 'r') as f:
             return yaml.safe_load(f)
     return {}
 
-def list_devices():
+def list_devices() -> Tuple[Any, List[Tuple[int, str]], List[Tuple[int, str]]]:
     devices = sd.query_devices()
     input_devices = [(idx, dev['name']) for idx, dev in enumerate(devices) if dev['max_input_channels'] > 0]
     output_devices = [(idx, dev['name']) for idx, dev in enumerate(devices) if dev['max_output_channels'] > 0]
@@ -26,7 +27,7 @@ def list_devices():
         print(f"  {idx}: {name}")
     return devices, input_devices, output_devices
 
-def main():
+def main() -> None:
     print("Listing audio devices...")
     try:
         config = load_config()
