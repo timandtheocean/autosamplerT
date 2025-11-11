@@ -473,7 +473,7 @@ audio_interface:
 
 ### 20.  Code Cleanup Needed
 - [x] Remove unused imports - COMPLETED (removed wavfile, parse_cc_messages, parse_cc14_messages from sampler.py)
-- [ ] Add type hints consistently
+- [x] Add type hints consistently - COMPLETED (added to autosamplerT.py, sampler.py, audio_interface_manager.py, midi_interface_manager.py)
 - [ ] Improve error messages (more user-friendly)
 - [ ] Add input validation for all arguments
 - [ ] Separate concerns better (large functions)
