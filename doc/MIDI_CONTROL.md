@@ -102,9 +102,9 @@ python autosamplerT.py --cc_messages "7,127;10,64;74,80"
 # Format: "cc,msb,lsb;cc,msb,lsb"
 python autosamplerT.py --cc14_messages "1,64,0;11,100,50"
 
-# Send SysEx messages (space-separated hex strings)
-# Each message is a separate argument
-python autosamplerT.py --sysex_messages "F0 43 10 7F 1C 00 F7" "F0 41 10 00 20 12 F7"
+# Send SysEx messages (without F0/F7 - added automatically)
+# Semicolon separates multiple messages
+python autosamplerT.py --sysex_messages "43 10 7F 1C 00;41 10 00 20 12"
 
 # Combine multiple message types
 python autosamplerT.py --program_change 5 --cc_messages "7,127;74,64"
@@ -114,7 +114,7 @@ python autosamplerT.py \
   --program_change 10 \
   --cc_messages "7,127;10,64;74,80" \
   --cc14_messages "1,64,0" \
-  --sysex_messages "F0 43 10 7F 1C 00 F7"
+  --sysex_messages "43 10 7F 1C 00"
 ```
 
 **Format Details:**
@@ -124,14 +124,14 @@ python autosamplerT.py \
 | `--program_change` | Single number (0-127) | `10` |
 | `--cc_messages` | `"cc,value;cc,value"` | `"7,127;10,64;74,80"` |
 | `--cc14_messages` | `"cc,msb,lsb;cc,msb,lsb"` | `"1,64,0;11,100,50"` |
-| `--sysex_messages` | Space-separated hex (F0/F7 required) | `"F0 43 10 7F 1C 00 F7"` |
+| `--sysex_messages` | `"data bytes;data bytes"` (no F0/F7) | `"43 10 7F 1C 00;41 10 00 20 12"` |
 
 **Platform Notes:**
 - **Windows PowerShell:** Use double quotes (`"`) for all arguments
 - **Linux/Mac:** Use single quotes (`'`) or double quotes (`"`)
-- **Semicolons (`;`)** separate multiple CC messages
+- **Semicolons (`;`)** separate multiple messages (CC, CC14, SysEx)
 - **Spaces** separate hex bytes in SysEx messages
-- **Multiple SysEx:** Each message is a separate argument (space-separated after `--sysex_messages`)
+- **SysEx wrappers:** F0 and F7 are added automatically - just provide data bytes
 
 ### Script YAML Configuration
 

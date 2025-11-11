@@ -180,6 +180,28 @@ Send Program Change and CC messages before sampling:
 python autosamplerT.py --program_change 10 --cc_messages "7,127;74,64"
 ```
 
+#### 14-bit CC Messages (High Resolution)
+
+Send high-resolution CC messages (e.g., for precise filter or volume control):
+
+```bash
+python autosamplerT.py --cc14_messages "1,8192;11,16383" --note_range_start C3 --note_range_end C4
+```
+
+Format: `"cc,value;cc,value"` where value is 0-16383 (automatically split into MSB/LSB)
+
+#### SysEx Messages
+
+Send SysEx configuration messages to your synth:
+
+```bash
+python autosamplerT.py --sysex_messages "43 10 7F 1C 00;41 10 00 00 00 20 12" --note_range_start C3 --note_range_end C4
+```
+
+Format: Space-separated hex bytes (without F0/F7 wrappers), semicolon separates multiple messages
+- F0 and F7 are added automatically
+- Example: `"43 10 7F 1C 00"` becomes `F0 43 10 7F 1C 00 F7`
+
 #### Per-Velocity-Layer MIDI Control
 
 Use script YAML to send different MIDI messages per velocity layer:
@@ -221,13 +243,13 @@ sampling_midi:
 
 #### SysEx Messages
 
-Send SysEx messages to configure your synth:
+Send SysEx messages to configure your synth (F0/F7 added automatically):
 
 ```yaml
 sampling_midi:
   sysex_messages:
-    - "F0 43 10 7F 1C 00 00 00 01 F7"  # Yamaha example
-    - "F0 41 10 00 00 00 20 12 F7"     # Roland example
+    - "43 10 7F 1C 00 00 00 01"  # Yamaha example (no F0/F7 needed)
+    - "41 10 00 00 00 20 12"     # Roland example
 ```
 
 Then run with your script:

@@ -101,8 +101,8 @@ def get_arg_parser():
                      help='MIDI output device name')
     midi.add_argument('--midi_channels', type=int, nargs='+', metavar='CH',
                      help='MIDI channels (space-separated list)')
-    midi.add_argument('--sysex_messages', type=str, nargs='+', metavar='MSG',
-                     help='SysEx messages (space-separated hex strings)')
+    midi.add_argument('--sysex_messages', type=str, metavar='MSG',
+                     help='SysEx messages (semicolon-separated, without F0/F7). Example: "43 10 7F 1C 00;41 10 00 20 12"')
     midi.add_argument('--program_change', type=int, metavar='PC',
                      help='Program change number (0-127)')
     midi.add_argument('--cc_messages', type=str, metavar='CC_LIST',
@@ -336,11 +336,17 @@ def main():
             print(f"  Expected comma-separated integers, e.g., '40,100,120,127'")
             sys.exit(1)
     
+    # Parse sysex_messages - split by semicolon to support multiple messages
+    sysex_list = None
+    if args.sysex_messages is not None:
+        # Split by semicolon: "msg1;msg2;msg3" -> ["msg1", "msg2", "msg3"]
+        sysex_list = [msg.strip() for msg in args.sysex_messages.split(';') if msg.strip()]
+    
     update_config_from_args(config, {
         'midi_input_name': args.midi_input_name,
         'midi_output_name': args.midi_output_name,
         'midi_channels': args.midi_channels,
-        'sysex_messages': args.sysex_messages,
+        'sysex_messages': sysex_list,
         'program_change': args.program_change,
         'cc_messages': args.cc_messages,
         'cc14_messages': args.cc14_messages,
