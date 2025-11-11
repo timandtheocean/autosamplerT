@@ -177,7 +177,7 @@ Load the `.sfz` file in your sampler (SFZ Player, etc.)
 Send Program Change and CC messages before sampling:
 
 ```bash
-python autosamplerT.py --program_change 10 --cc_messages '{"7":127,"74":64}'
+python autosamplerT.py --program_change 10 --cc_messages "7,127;74,64"
 ```
 
 #### Per-Velocity-Layer MIDI Control

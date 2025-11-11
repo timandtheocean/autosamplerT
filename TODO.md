@@ -313,9 +313,10 @@ else:
 
 ### 14. [WARNING] MIDI Control Arguments - NEEDS COMPREHENSIVE TESTING
 **Status:** Implemented but complex, needs validation
-- `--sysex_messages` - SysEx message parsing and sending
+- `--sysex_messages` - SysEx message parsing and sending (space-separated hex strings)
 - `--program_change` - Program change before sampling
-- `--cc_messages` - JSON CC message parsing
+- `--cc_messages` - CC message parsing (format: "cc,value;cc,value")
+- `--cc14_messages` - 14-bit CC message parsing (format: "cc,msb,lsb;cc,msb,lsb")
 - `--midi_channels` - Multi-channel support
 
 **Testing Required:**
@@ -411,8 +412,9 @@ audio_interface:
 
 ### MIDI Control
 - [ ] Test `--program_change` with hardware synth
-- [ ] Test `--cc_messages` JSON parsing and sending
-- [ ] Test `--sysex_messages` hex string parsing
+- [ ] Test `--cc_messages` semicolon-separated format parsing and sending
+- [ ] Test `--cc14_messages` 14-bit CC format parsing and sending
+- [ ] Test `--sysex_messages` space-separated hex string parsing
 - [ ] Test per-velocity-layer MIDI control
 - [ ] Test per-round-robin-layer MIDI control
 - [ ] Test multi-channel MIDI routing
@@ -439,7 +441,6 @@ audio_interface:
 
 ### SFZ Output
 - [ ] Test SFZ loads in Sforzando
-- [ ] Test SFZ loads in Kontakt
 - [ ] Test velocity switching works
 - [ ] Test round-robin works
 - [ ] Test loop points work
