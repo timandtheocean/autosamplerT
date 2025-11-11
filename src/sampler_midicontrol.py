@@ -39,7 +39,7 @@ class MIDIController:
         try:
             cc_msg = mido.Message('control_change', control=cc_number, value=value, channel=channel)
             self.midi_output_port.send(cc_msg)
-            logging.debug(f"MIDI CC: cc={cc_number}, value={value}, channel={channel}")
+            logging.info(f"MIDI CC sent: cc={cc_number}, value={value}, channel={channel}")
         except Exception as e:
             logging.error(f"Failed to send MIDI CC: {e}")
     
@@ -73,7 +73,7 @@ class MIDIController:
             lsb_msg = mido.Message('control_change', control=cc_number + 32, value=lsb, channel=channel)
             self.midi_output_port.send(lsb_msg)
             
-            logging.debug(f"MIDI CC14: cc={cc_number} (MSB={msb}, LSB={lsb}), value={value} (14-bit), channel={channel}")
+            logging.info(f"MIDI CC14 sent: cc={cc_number} (MSB={msb}, LSB={lsb}), value={value} (14-bit), channel={channel}")
         except Exception as e:
             logging.error(f"Failed to send 14-bit MIDI CC: {e}")
     
@@ -203,7 +203,7 @@ class MIDIController:
             time.sleep(0.1)  # Allow program change to settle
     
     def apply_velocity_layer_midi(self, velocity_layer: int, velocity_midi_config: List[Dict], 
-                                   default_channel: int = 0) -> None:
+                                   default_channel: int = 0, message_delay: float = 0.0) -> None:
         """
         Apply MIDI settings for a specific velocity layer.
         
@@ -211,6 +211,7 @@ class MIDIController:
             velocity_layer: Current velocity layer index (0, 1, 2, etc.)
             velocity_midi_config: List of velocity MIDI control configurations
             default_channel: Default MIDI channel if not specified
+            message_delay: Delay in seconds after sending MIDI messages (before note-on)
         """
         if not velocity_midi_config:
             return
@@ -245,9 +246,14 @@ class MIDIController:
         if program is not None:
             self.send_program_change(program, channel)
             time.sleep(0.1)  # Allow program change to settle
+        
+        # Apply message delay if configured
+        if message_delay > 0:
+            logging.debug(f"Waiting {message_delay}s after velocity layer MIDI messages")
+            time.sleep(message_delay)
     
     def apply_roundrobin_layer_midi(self, roundrobin_layer: int, roundrobin_midi_config: List[Dict],
-                                     default_channel: int = 0) -> None:
+                                     default_channel: int = 0, message_delay: float = 0.0) -> None:
         """
         Apply MIDI settings for a specific round-robin layer.
         
@@ -289,6 +295,11 @@ class MIDIController:
         if program is not None:
             self.send_program_change(program, channel)
             time.sleep(0.1)  # Allow program change to settle
+        
+        # Apply message delay if configured
+        if message_delay > 0:
+            logging.debug(f"Waiting {message_delay}s after round-robin layer MIDI messages")
+            time.sleep(message_delay)
     
     def get_layer_channel(self, velocity_layer: int, roundrobin_layer: int,
                           velocity_midi_config: List[Dict], roundrobin_midi_config: List[Dict],

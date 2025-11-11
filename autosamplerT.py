@@ -63,8 +63,9 @@ def get_arg_parser():
                            help='Path to config YAML')
     main_group.add_argument('--script', type=str, 
                            help='Path to script YAML for batch sampling')
-    main_group.add_argument('--setup', action='store_true', 
-                           help='Run setup for audio and MIDI interfaces')
+    # Setup can target specific subsystems: --setup audio | midi | all (default: all if no value provided)
+    main_group.add_argument('--setup', nargs='?', const='all', choices=['audio','midi','all'],
+                           help='Run setup for interfaces: audio, midi, or all (default: all)')
     main_group.add_argument('--help', nargs='?', const='main', default=None, 
                            choices=['main', 'audio', 'midi', 'sampling', 'postprocessing'], 
                            help='Show help for main, audio, midi, sampling, or postprocessing options')
@@ -230,7 +231,7 @@ def main():
         
         # Merge script config into main config (script overrides config file)
         if script_config:
-            for section in ['audio_interface', 'midi_interface', 'sampling']:
+            for section in ['audio_interface', 'midi_interface', 'sampling', 'sampling_midi']:
                 if section in script_config:
                     if section not in config:
                         config[section] = {}
@@ -369,9 +370,17 @@ def main():
 
     # Setup mode
     if args.setup:
-        print("Launching audio and MIDI setup...")
-        os.system(f"{sys.executable} src/set_audio_config.py")
-        os.system(f"{sys.executable} src/set_midi_config.py")
+        target = args.setup  # 'audio', 'midi', or 'all'
+        if target == 'all':
+            print("Launching AUDIO + MIDI setup...")
+            os.system(f"{sys.executable} src/set_audio_config.py")
+            os.system(f"{sys.executable} src/set_midi_config.py")
+        elif target == 'audio':
+            print("Launching AUDIO setup...")
+            os.system(f"{sys.executable} src/set_audio_config.py")
+        elif target == 'midi':
+            print("Launching MIDI setup...")
+            os.system(f"{sys.executable} src/set_midi_config.py")
         print("Setup complete.")
         sys.exit(0)
 

@@ -84,6 +84,9 @@ class AutoSampler:
         self.velocity_minimum = self.midi_config.get('velocity_minimum', 1)
         self.velocity_layers_split = self.midi_config.get('velocity_layers_split', None)
         
+        # MIDI message delay (time to wait after sending CC/PC/SysEx before note-on)
+        self.midi_message_delay = self.midi_config.get('midi_message_delay', 0.0)
+        
         # Processing settings
         self.silence_detection = self.audio_config.get('silence_detection', True)
         self.sample_normalize = self.audio_config.get('sample_normalize', True)
@@ -615,6 +618,9 @@ class AutoSampler:
         velocity_midi_config = self.sampling_midi_config.get('velocity_midi_control', [])
         roundrobin_midi_config = self.sampling_midi_config.get('roundrobin_midi_control', [])
         
+        logging.info(f"Velocity MIDI config: {len(velocity_midi_config)} layers")
+        logging.info(f"Round-robin MIDI config: {len(roundrobin_midi_config)} layers")
+        
         # Send initial MIDI setup messages (from sampling_midi or fallback to midi_interface)
         initial_config = {}
         if self.sampling_midi_config:
@@ -635,7 +641,7 @@ class AutoSampler:
                 # Apply velocity layer MIDI settings
                 if self.midi_controller and velocity_midi_config:
                     self.midi_controller.apply_velocity_layer_midi(
-                        vel_layer, velocity_midi_config, channel
+                        vel_layer, velocity_midi_config, channel, self.midi_message_delay
                     )
                 
                 # Iterate through round-robin layers
@@ -643,7 +649,7 @@ class AutoSampler:
                     # Apply round-robin layer MIDI settings
                     if self.midi_controller and roundrobin_midi_config:
                         self.midi_controller.apply_roundrobin_layer_midi(
-                            rr_layer, roundrobin_midi_config, channel
+                            rr_layer, roundrobin_midi_config, channel, self.midi_message_delay
                         )
                     
                     # Determine which channel to use for this note
