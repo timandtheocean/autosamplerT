@@ -472,7 +472,7 @@ audio_interface:
 ## Code Quality Issues
 
 ### 20.  Code Cleanup Needed
-- [ ] Remove unused imports
+- [x] Remove unused imports - COMPLETED (removed wavfile, parse_cc_messages, parse_cc14_messages from sampler.py)
 - [ ] Add type hints consistently
 - [ ] Improve error messages (more user-friendly)
 - [ ] Add input validation for all arguments
