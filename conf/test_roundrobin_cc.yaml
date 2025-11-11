@@ -1,0 +1,43 @@
+midi_interface:
+  note_range: {start: 60, end: 60, interval: 1}  # Middle C only
+
+sampling_midi:
+  midi_channels: [0]
+  program_change: null
+  cc_messages: {}
+  cc14_messages: {}
+  sysex_messages: []
+
+  velocity_midi_control:
+    - velocity_layer: 0
+      midi_channel: 0
+      cc_messages: {}
+      sysex_messages: []
+
+  roundrobin_midi_control:
+    - roundrobin_layer: 0
+      midi_channel: 0
+      cc_messages: {1: 10}   # CC1 = 10
+    - roundrobin_layer: 1
+      midi_channel: 0
+      cc_messages: {2: 20}   # CC2 = 20
+    - roundrobin_layer: 2
+      midi_channel: 0
+      cc_messages: {3: 30}   # CC3 = 30
+    - roundrobin_layer: 3
+      midi_channel: 0
+      cc_messages: {4: 40}   # CC4 = 40
+
+sampling:
+  hold_time: 2.0
+  release_time: 1.0
+  pause_time: 0.5
+  multisample_name: "RR_Test_CC"
+  velocity_layers: 1
+  roundrobin_layers: 4
+  output_format: "sfz"
+  output_folder: "./output"
+  test_mode: false
+  script_mode: true
+  lowest_note: 0
+  highest_note: 127

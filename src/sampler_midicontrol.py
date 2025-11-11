@@ -22,6 +22,7 @@ class MIDIController:
         """
         self.midi_output_port = midi_output_port
         self.test_mode = test_mode
+        self.sysex_header_state = None  # Track last SysEx header for reuse across layers
     
     def send_midi_cc(self, cc_number: int, value: int, channel: int = 0) -> None:
         """
@@ -39,7 +40,7 @@ class MIDIController:
         try:
             cc_msg = mido.Message('control_change', control=cc_number, value=value, channel=channel)
             self.midi_output_port.send(cc_msg)
-            logging.debug(f"MIDI CC: cc={cc_number}, value={value}, channel={channel}")
+            logging.info(f"MIDI CC sent: cc={cc_number}, value={value}, channel={channel}")
         except Exception as e:
             logging.error(f"Failed to send MIDI CC: {e}")
     
@@ -73,7 +74,7 @@ class MIDIController:
             lsb_msg = mido.Message('control_change', control=cc_number + 32, value=lsb, channel=channel)
             self.midi_output_port.send(lsb_msg)
             
-            logging.debug(f"MIDI CC14: cc={cc_number} (MSB={msb}, LSB={lsb}), value={value} (14-bit), channel={channel}")
+            logging.info(f"MIDI CC14 sent: cc={cc_number} (MSB={msb}, LSB={lsb}), value={value} (14-bit), channel={channel}")
         except Exception as e:
             logging.error(f"Failed to send 14-bit MIDI CC: {e}")
     
@@ -203,7 +204,7 @@ class MIDIController:
             time.sleep(0.1)  # Allow program change to settle
     
     def apply_velocity_layer_midi(self, velocity_layer: int, velocity_midi_config: List[Dict], 
-                                   default_channel: int = 0) -> None:
+                                   default_channel: int = 0, message_delay: float = 0.0) -> None:
         """
         Apply MIDI settings for a specific velocity layer.
         
@@ -211,6 +212,7 @@ class MIDIController:
             velocity_layer: Current velocity layer index (0, 1, 2, etc.)
             velocity_midi_config: List of velocity MIDI control configurations
             default_channel: Default MIDI channel if not specified
+            message_delay: Delay in seconds after sending MIDI messages (before note-on)
         """
         if not velocity_midi_config:
             return
@@ -233,7 +235,8 @@ class MIDIController:
         # Send SysEx
         sysex_messages = layer_config.get('sysex_messages', [])
         if sysex_messages:
-            self.send_sysex_messages(sysex_messages, channel)
+            parsed_sysex, self.sysex_header_state = parse_sysex_messages(sysex_messages, self.sysex_header_state)
+            self.send_sysex_messages(parsed_sysex, channel)
         
         # Send CC messages
         cc_messages = layer_config.get('cc_messages', {})
@@ -245,9 +248,14 @@ class MIDIController:
         if program is not None:
             self.send_program_change(program, channel)
             time.sleep(0.1)  # Allow program change to settle
+        
+        # Apply message delay if configured
+        if message_delay > 0:
+            logging.debug(f"Waiting {message_delay}s after velocity layer MIDI messages")
+            time.sleep(message_delay)
     
     def apply_roundrobin_layer_midi(self, roundrobin_layer: int, roundrobin_midi_config: List[Dict],
-                                     default_channel: int = 0) -> None:
+                                     default_channel: int = 0, message_delay: float = 0.0) -> None:
         """
         Apply MIDI settings for a specific round-robin layer.
         
@@ -277,7 +285,8 @@ class MIDIController:
         # Send SysEx
         sysex_messages = layer_config.get('sysex_messages', [])
         if sysex_messages:
-            self.send_sysex_messages(sysex_messages, channel)
+            parsed_sysex, self.sysex_header_state = parse_sysex_messages(sysex_messages, self.sysex_header_state)
+            self.send_sysex_messages(parsed_sysex, channel)
         
         # Send CC messages
         cc_messages = layer_config.get('cc_messages', {})
@@ -289,6 +298,11 @@ class MIDIController:
         if program is not None:
             self.send_program_change(program, channel)
             time.sleep(0.1)  # Allow program change to settle
+        
+        # Apply message delay if configured
+        if message_delay > 0:
+            logging.debug(f"Waiting {message_delay}s after round-robin layer MIDI messages")
+            time.sleep(message_delay)
     
     def get_layer_channel(self, velocity_layer: int, roundrobin_layer: int,
                           velocity_midi_config: List[Dict], roundrobin_midi_config: List[Dict],
@@ -432,26 +446,120 @@ def parse_cc14_messages(cc14_input) -> Dict[int, int]:
     return {}
 
 
-def parse_sysex_messages(sysex_input) -> List[str]:
+def parse_sysex_messages(sysex_input, header_state: Optional[str] = None) -> tuple[List[str], Optional[str]]:
     """
     Parse SysEx messages from various input formats.
     
     Args:
         sysex_input: Can be:
-                    - List: ["F0 43 10 7F F7", "F0 44 11 F7"]
+                    - List of strings: ["F0 43 10 7F F7", "10 08 01 06 13 0A"]
+                    - List of dicts: [{"header": "10 08 01 06", "controller": "13", "value": 10}, {"raw": "10 08 01 06 13 0A"}]
                     - Single string: "F0 43 10 7F F7"
                     - None or empty
+        header_state: Previous SysEx header for reuse across layers
     
     Returns:
-        List of SysEx hex strings
+        Tuple of (List of SysEx hex strings, updated header state)
     """
     if not sysex_input:
-        return []
+        return [], header_state
     
+    result = []
+    last_header = header_state  # Start with provided header state
+    
+    # Handle list input
     if isinstance(sysex_input, list):
-        return [str(s) for s in sysex_input if s]
+        for item in sysex_input:
+            if not item:
+                continue
+            
+            # String format (raw hex)
+            if isinstance(item, str):
+                msg = _ensure_sysex_wrapper(item)
+                if msg:
+                    result.append(msg)
+            
+            # Dict format (structured)
+            elif isinstance(item, dict):
+                # Raw format
+                if 'raw' in item:
+                    raw_data = str(item['raw']).strip()
+                    msg = _ensure_sysex_wrapper(raw_data)
+                    if msg:
+                        result.append(msg)
+                
+                # Structured format
+                elif 'controller' in item and 'value' in item:
+                    # Get or reuse header
+                    if 'header' in item:
+                        last_header = str(item['header']).strip()
+                    
+                    if not last_header:
+                        logging.error("SysEx structured format requires 'header' on first message or previous message")
+                        continue
+                    
+                    # Parse controller and value
+                    try:
+                        controller = _parse_hex_value(item['controller'])
+                        value = int(item['value'])
+                        
+                        # Validate ranges
+                        if not (0 <= controller <= 127):
+                            logging.error(f"SysEx controller {controller} out of range (0-127)")
+                            continue
+                        if not (0 <= value <= 127):
+                            logging.error(f"SysEx value {value} out of range (0-127)")
+                            continue
+                        
+                        # Build message: header + controller + value
+                        msg_data = f"{last_header} {controller:02X} {value:02X}"
+                        msg = _ensure_sysex_wrapper(msg_data)
+                        if msg:
+                            result.append(msg)
+                    
+                    except (ValueError, TypeError) as e:
+                        logging.error(f"Failed to parse SysEx structured format: {e}")
+                        continue
+                else:
+                    logging.error(f"Invalid SysEx dict format: {item}")
+            else:
+                logging.error(f"Invalid SysEx item type: {type(item)}")
     
-    if isinstance(sysex_input, str):
-        return [sysex_input]
+    # Handle single string input
+    elif isinstance(sysex_input, str):
+        msg = _ensure_sysex_wrapper(sysex_input)
+        if msg:
+            result.append(msg)
     
-    return []
+    return result, last_header
+
+
+def _parse_hex_value(value) -> int:
+    """Parse hex value from string or int."""
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        value = value.strip()
+        # Handle "0x13" or "13" format
+        if value.startswith('0x') or value.startswith('0X'):
+            return int(value, 16)
+        else:
+            return int(value, 16)
+    raise ValueError(f"Cannot parse hex value: {value}")
+
+
+def _ensure_sysex_wrapper(data: str) -> Optional[str]:
+    """Ensure SysEx message has F0 and F7 wrapper."""
+    data = data.strip()
+    if not data:
+        return None
+    
+    # Remove F0 and F7 if present
+    parts = data.split()
+    filtered = [p for p in parts if p.upper() not in ['F0', 'F7']]
+    
+    if not filtered:
+        return None
+    
+    # Rebuild with F0 and F7
+    return f"F0 {' '.join(filtered)} F7"

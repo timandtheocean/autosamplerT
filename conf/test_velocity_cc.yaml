@@ -1,0 +1,48 @@
+midi_interface:
+  note_range: {start: 60, end: 60, interval: 1}  # Middle C only
+  midi_message_delay: 0.05  # 50ms delay after CC messages before note-on
+
+sampling_midi:
+  midi_channels: [0]
+  program_change: null
+  cc_messages: {}
+  cc14_messages: {}
+  sysex_messages: []
+
+  velocity_midi_control:
+    - velocity_layer: 0
+      midi_channel: 0
+      cc_messages: {74: 10}   # Brightness = 10 (soft/dark)
+      sysex_messages: []
+    - velocity_layer: 1
+      midi_channel: 0
+      cc_messages: {74: 40}   # Brightness = 40
+      sysex_messages: []
+    - velocity_layer: 2
+      midi_channel: 0
+      cc_messages: {74: 70}   # Brightness = 70
+      sysex_messages: []
+    - velocity_layer: 3
+      midi_channel: 0
+      cc_messages: {74: 100}   # Brightness = 100
+      sysex_messages: []
+    - velocity_layer: 4
+      midi_channel: 0
+      cc_messages: {74: 127}   # Brightness = 127 (bright)
+      sysex_messages: []
+
+  roundrobin_midi_control: []
+
+sampling:
+  hold_time: 2.0
+  release_time: 1.0
+  pause_time: 0.5
+  multisample_name: "VelocityLayers_CC74_Test"
+  velocity_layers: 5
+  roundrobin_layers: 1
+  output_format: "sfz"
+  output_folder: "./output"
+  test_mode: false
+  script_mode: true
+  lowest_note: 0
+  highest_note: 127

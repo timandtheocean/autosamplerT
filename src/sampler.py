@@ -84,6 +84,9 @@ class AutoSampler:
         self.velocity_minimum = self.midi_config.get('velocity_minimum', 1)
         self.velocity_layers_split = self.midi_config.get('velocity_layers_split', None)
         
+        # MIDI message delay (time to wait after sending CC/PC/SysEx before note-on)
+        self.midi_message_delay = self.midi_config.get('midi_message_delay', 0.0)
+        
         # Processing settings
         self.silence_detection = self.audio_config.get('silence_detection', True)
         self.sample_normalize = self.audio_config.get('sample_normalize', True)
@@ -615,6 +618,9 @@ class AutoSampler:
         velocity_midi_config = self.sampling_midi_config.get('velocity_midi_control', [])
         roundrobin_midi_config = self.sampling_midi_config.get('roundrobin_midi_control', [])
         
+        logging.info(f"Velocity MIDI config: {len(velocity_midi_config)} layers")
+        logging.info(f"Round-robin MIDI config: {len(roundrobin_midi_config)} layers")
+        
         # Send initial MIDI setup messages (from sampling_midi or fallback to midi_interface)
         initial_config = {}
         if self.sampling_midi_config:
@@ -635,7 +641,7 @@ class AutoSampler:
                 # Apply velocity layer MIDI settings
                 if self.midi_controller and velocity_midi_config:
                     self.midi_controller.apply_velocity_layer_midi(
-                        vel_layer, velocity_midi_config, channel
+                        vel_layer, velocity_midi_config, channel, self.midi_message_delay
                     )
                 
                 # Iterate through round-robin layers
@@ -643,7 +649,7 @@ class AutoSampler:
                     # Apply round-robin layer MIDI settings
                     if self.midi_controller and roundrobin_midi_config:
                         self.midi_controller.apply_roundrobin_layer_midi(
-                            rr_layer, roundrobin_midi_config, channel
+                            rr_layer, roundrobin_midi_config, channel, self.midi_message_delay
                         )
                     
                     # Determine which channel to use for this note
@@ -914,6 +920,114 @@ class AutoSampler:
         
         return True
     
+    def show_sampling_summary(self, start_note: int, end_note: int, interval: int) -> bool:
+        """
+        Display sampling summary and ask for user confirmation.
+        
+        Args:
+            start_note: Starting MIDI note
+            end_note: Ending MIDI note
+            interval: Note interval
+            
+        Returns:
+            True to continue, False to abort
+        """
+        # Calculate sample count
+        num_notes = len(range(start_note, end_note + 1, interval))
+        total_samples = num_notes * self.velocity_layers * self.roundrobin_layers
+        
+        # Calculate duration per sample
+        sample_duration = self.hold_time + self.release_time
+        total_duration_seconds = total_samples * (sample_duration + self.pause_time)
+        total_duration_minutes = total_duration_seconds / 60
+        
+        # Calculate file size
+        # Formula: samples * samplerate * duration * channels * (bitdepth/8)
+        bytes_per_sample = self.channels * (self.bitdepth // 8)
+        frames_per_file = int(self.samplerate * sample_duration)
+        bytes_per_file = frames_per_file * bytes_per_sample
+        total_bytes = total_samples * bytes_per_file
+        total_mb = total_bytes / (1024 * 1024)
+        
+        # Get MIDI settings summary
+        velocity_midi = self.sampling_midi_config.get('velocity_midi_control', [])
+        roundrobin_midi = self.sampling_midi_config.get('roundrobin_midi_control', [])
+        
+        print("\n" + "="*70)
+        print("SAMPLING SUMMARY")
+        print("="*70)
+        print(f"\nOutput Settings:")
+        print(f"  Name:          {self.multisample_name}")
+        print(f"  Location:      {self.multisample_folder}")
+        print(f"  Format:        {self.output_format.upper()}")
+        
+        print(f"\nSample Configuration:")
+        print(f"  Note range:    {start_note} to {end_note} (interval: {interval})")
+        print(f"  Notes:         {num_notes}")
+        print(f"  Velocity layers: {self.velocity_layers}")
+        print(f"  Round-robin:   {self.roundrobin_layers}")
+        print(f"  Total samples: {total_samples}")
+        
+        print(f"\nAudio Settings:")
+        print(f"  Sample rate:   {self.samplerate} Hz")
+        print(f"  Bit depth:     {self.bitdepth} bit")
+        print(f"  Channels:      {self.channels} ({'stereo' if self.channels == 2 else 'mono'})")
+        
+        print(f"\nTiming Settings:")
+        print(f"  Hold time:     {self.hold_time:.2f}s")
+        print(f"  Release time:  {self.release_time:.2f}s")
+        print(f"  Pause time:    {self.pause_time:.2f}s")
+        print(f"  Sample duration: {sample_duration:.2f}s (hold + release)")
+        print(f"  Total per sample: {sample_duration + self.pause_time:.2f}s (inc. pause)")
+        
+        print(f"\nMIDI Control:")
+        if velocity_midi:
+            print(f"  Velocity layers: {len(velocity_midi)} configured")
+            for layer in velocity_midi:
+                cc_msg = layer.get('cc_messages', {})
+                sysex = layer.get('sysex_messages', [])
+                prog = layer.get('program_change')
+                info = []
+                if cc_msg: info.append(f"CC: {len(cc_msg)}")
+                if sysex: info.append(f"SysEx: {len(sysex)}")
+                if prog is not None: info.append(f"PC: {prog}")
+                if info:
+                    print(f"    Layer {layer.get('velocity_layer')}: {', '.join(info)}")
+        else:
+            print(f"  Velocity layers: None")
+            
+        if roundrobin_midi:
+            print(f"  Round-robin layers: {len(roundrobin_midi)} configured")
+            for layer in roundrobin_midi:
+                cc_msg = layer.get('cc_messages', {})
+                sysex = layer.get('sysex_messages', [])
+                prog = layer.get('program_change')
+                info = []
+                if cc_msg: info.append(f"CC: {len(cc_msg)}")
+                if sysex: info.append(f"SysEx: {len(sysex)}")
+                if prog is not None: info.append(f"PC: {prog}")
+                if info:
+                    print(f"    Layer {layer.get('roundrobin_layer')}: {', '.join(info)}")
+        else:
+            print(f"  Round-robin layers: None")
+        
+        print(f"\nEstimates:")
+        print(f"  Duration:      {total_duration_minutes:.1f} minutes")
+        print(f"  Disk space:    {total_mb:.1f} MB")
+        
+        print("="*70)
+        
+        # Ask for confirmation
+        while True:
+            choice = input("\nProceed with sampling? (y/n): ").strip().lower()
+            if choice == 'y':
+                return True
+            elif choice == 'n':
+                print("Sampling cancelled by user")
+                return False
+            else:
+                print("Please enter 'y' or 'n'")
+    
     def run(self) -> bool:
         """
         Main sampling workflow: setup, sample, generate output files.
@@ -958,6 +1072,13 @@ class AutoSampler:
             
             logging.info(f"Sampling range: Note {start_note}-{end_note}, interval {interval}")
             logging.info(f"Velocity layers: {self.velocity_layers}, Round-robin: {self.roundrobin_layers}")
+            logging.info(f"Timing: hold={self.hold_time:.2f}s, release={self.release_time:.2f}s, pause={self.pause_time:.2f}s")
+            
+            # Show summary and get confirmation (skip in test mode)
+            if not self.test_mode:
+                if not self.show_sampling_summary(start_note, end_note, interval):
+                    logging.info("Sampling cancelled by user")
+                    return False
             
             # Sample the range
             sample_list = self.sample_range(start_note, end_note, interval, channel)
