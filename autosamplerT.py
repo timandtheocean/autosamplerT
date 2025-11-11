@@ -3,8 +3,9 @@ import sys
 import os
 import yaml
 import re
+from typing import Optional
 
-def note_name_to_midi(note_str):
+def note_name_to_midi(note_str: str) -> Optional[int]:
     """
     Convert note name to MIDI number.
     Accepts: C-1 to G9, with optional # or b for sharps/flats.
@@ -51,7 +52,7 @@ def note_name_to_midi(note_str):
         return midi_num
     return None
 
-def get_arg_parser():
+def get_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="AutosamplerT - Crossplatform hardware synth autosampler",
         add_help=False
@@ -182,7 +183,7 @@ def get_arg_parser():
 
     return parser
 
-def show_help(parser, section):
+def show_help(parser: argparse.ArgumentParser, section: str) -> None:
     """Show help for specific section or main help."""
     if section == 'main':
         # Show custom main help with usage examples
@@ -290,7 +291,7 @@ def show_help(parser, section):
         print(f"Unknown help section: {section}")
         print("Available sections: main, audio, midi, sampling, postprocessing, examples")
 
-def main():
+def main() -> None:
     parser = get_arg_parser()
     args, unknown = parser.parse_known_args()
 
