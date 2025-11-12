@@ -1,7 +1,7 @@
 audio_interface:
   bitdepth: 24
-  input_device_index: 20
-  output_device_index: 20
+  input_device_index: 16
+  output_device_index: 16
   samplerate: 44100
 midi_interface:
   midi_input_name: Prophet 6 1

@@ -88,6 +88,9 @@ def get_arg_parser() -> argparse.ArgumentParser:
                       help='Mono or stereo recording')
     audio.add_argument('--mono_channel', type=int, metavar='CH',
                       choices=[0, 1], help='Channel to use for mono recording (0=left, 1=right)')
+    audio.add_argument('--channel_offset', type=int, metavar='OFFSET',
+                      choices=[0, 2, 4, 6], 
+                      help='Stereo pair offset for multi-channel devices (0=ch 0-1, 2=ch 2-3, 4=ch 4-5, 6=ch 6-7)')
     audio.add_argument('--gain', type=float, metavar='GAIN',
                       help='Input gain (0.0 to 2.0)')
     audio.add_argument('--latency_compensation', type=float, metavar='MS',
@@ -363,6 +366,7 @@ def main() -> None:
         'bitdepth': args.bitdepth,
         'mono_stereo': args.mono_stereo,
         'mono_channel': args.mono_channel,
+        'channel_offset': args.channel_offset,
         'gain': args.gain,
         'latency_compensation': args.latency_compensation,
         'patch_normalize': get_arg_if_set(args, 'patch_normalize'),

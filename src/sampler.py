@@ -72,6 +72,7 @@ class AutoSampler:
         self.mono_stereo = self.audio_config.get('mono_stereo', 'stereo')
         self.channels = 2 if self.mono_stereo == 'stereo' else 1
         self.mono_channel = self.audio_config.get('mono_channel', 0)  # 0=left, 1=right
+        self.channel_offset = self.audio_config.get('channel_offset', 0)  # Which stereo pair: 0, 2, 4, 6
         self.input_device = self.audio_config.get('input_device_index')
         self.output_device = self.audio_config.get('output_device_index')
         
@@ -173,10 +174,17 @@ class AutoSampler:
             
             logging.info(f"Bit depth: {self.bitdepth} bits")
             if self.channels == 2:
-                logging.info(f"Channels: 2 (stereo)")
+                if self.channel_offset > 0:
+                    logging.info(f"Channels: 2 (stereo, offset {self.channel_offset}: channels {self.channel_offset}-{self.channel_offset+1})")
+                else:
+                    logging.info(f"Channels: 2 (stereo)")
             else:
                 channel_name = 'left' if self.mono_channel == 0 else 'right'
-                logging.info(f"Channels: 1 (mono, using {channel_name} channel)")
+                if self.channel_offset > 0:
+                    actual_channel = self.channel_offset + self.mono_channel
+                    logging.info(f"Channels: 1 (mono, using {channel_name} channel from offset {self.channel_offset}, actual channel {actual_channel})")
+                else:
+                    logging.info(f"Channels: 1 (mono, using {channel_name} channel)")
             
             return True
         except Exception as e:
@@ -237,21 +245,51 @@ class AutoSampler:
         try:
             logging.debug(f"Recording {duration}s at {self.samplerate}Hz, {self.channels} channels")
             
-            # Always record in stereo if input has multiple channels
-            # For mono output, we'll select the desired channel afterwards
-            record_channels = 2 if self.mono_stereo == 'mono' else self.channels
+            # Detect device channel count and host API
+            device_info = sd.query_devices(self.input_device)
+            device_channels = device_info['max_input_channels']
+            host_apis = sd.query_hostapis()
+            host_api_name = host_apis[device_info['hostapi']]['name']
+            is_asio = 'ASIO' in host_api_name
+            
+            logging.debug(f"Device: {device_info['name']}, Host API: {host_api_name}")
+            logging.debug(f"Device has {device_channels} input channels available")
+            
+            # Determine channel selection strategy
+            extra_settings = None
+            if is_asio and device_channels > 2:
+                # ASIO multi-channel device: use AsioSettings for channel selection
+                if self.mono_stereo == 'stereo':
+                    # Select stereo pair based on channel_offset
+                    channel_selectors = [self.channel_offset, self.channel_offset + 1]
+                    record_channels = 2
+                    logging.info(f"ASIO: Selecting channels {channel_selectors} (stereo pair)")
+                else:
+                    # Select single channel for mono
+                    channel_selectors = [self.channel_offset + self.mono_channel]
+                    record_channels = 1
+                    logging.info(f"ASIO: Selecting channel {channel_selectors[0]} (mono)")
+                
+                extra_settings = sd.AsioSettings(channel_selectors=channel_selectors)
+            elif self.mono_stereo == 'mono':
+                # Non-ASIO in mono mode: record stereo then extract one channel
+                record_channels = 2
+            else:
+                # Standard stereo recording
+                record_channels = self.channels
             
             # Record audio
             frames = int(duration * self.samplerate)
-            logging.info(f"Starting recording: {frames} frames ({duration:.1f}s)")
+            logging.info(f"Starting recording: {frames} frames ({duration:.1f}s), {record_channels} channels")
             
-            # Explicitly pass device for ASIO compatibility
+            # Explicitly pass device and extra_settings for ASIO compatibility
             recording = sd.rec(
                 frames,
                 samplerate=self.samplerate,
                 channels=record_channels,
                 dtype='float32',
                 device=self.input_device,
+                extra_settings=extra_settings,
                 blocking=False
             )
             
