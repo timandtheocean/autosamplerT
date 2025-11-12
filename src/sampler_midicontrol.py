@@ -49,11 +49,11 @@ class MIDIController:
         Send a 14-bit MIDI Control Change message.
         
         14-bit CC messages use two consecutive controllers:
-        - MSB (Most Significant Byte): CC number (0-31)
-        - LSB (Least Significant Byte): CC number + 32 (32-63)
+        - MSB (Most Significant Byte): CC number (0-127)
+        - LSB (Least Significant Byte): CC number + 32 (32-159, wraps for CC96+)
         
         Args:
-            cc_number: CC number (0-31, for MSB controller)
+            cc_number: CC number (0-127)
             value: CC value (0-16383, 14-bit)
             channel: MIDI channel (0-15)
         """
@@ -77,6 +77,53 @@ class MIDIController:
             logging.info(f"MIDI CC14 sent: cc={cc_number} (MSB={msb}, LSB={lsb}), value={value} (14-bit), channel={channel}")
         except Exception as e:
             logging.error(f"Failed to send 14-bit MIDI CC: {e}")
+    
+    def send_nrpn(self, parameter: int, value: int, channel: int = 0) -> None:
+        """
+        Send an NRPN (Non-Registered Parameter Number) message.
+        
+        NRPN messages use 4 CC messages in sequence:
+        1. CC 99 (NRPN MSB) - Parameter number high byte
+        2. CC 98 (NRPN LSB) - Parameter number low byte
+        3. CC 6 (Data Entry MSB) - Value high byte
+        4. CC 38 (Data Entry LSB) - Value low byte
+        
+        Args:
+            parameter: NRPN parameter number (0-16383)
+            value: NRPN value (0-16383)
+            channel: MIDI channel (0-15)
+        """
+        if not self.midi_output_port or self.test_mode:
+            logging.info(f"[TEST MODE] MIDI NRPN: param={parameter}, value={value}, channel={channel}")
+            return
+        
+        try:
+            # Split parameter into MSB/LSB
+            param_msb = (parameter >> 7) & 0x7F  # Upper 7 bits
+            param_lsb = parameter & 0x7F          # Lower 7 bits
+            
+            # Split value into MSB/LSB
+            value_msb = (value >> 7) & 0x7F  # Upper 7 bits
+            value_lsb = value & 0x7F          # Lower 7 bits
+            
+            # Send NRPN parameter selection (CC99 + CC98)
+            nrpn_msb_msg = mido.Message('control_change', control=99, value=param_msb, channel=channel)
+            self.midi_output_port.send(nrpn_msb_msg)
+            
+            nrpn_lsb_msg = mido.Message('control_change', control=98, value=param_lsb, channel=channel)
+            self.midi_output_port.send(nrpn_lsb_msg)
+            
+            # Send data entry (CC6 + CC38)
+            data_msb_msg = mido.Message('control_change', control=6, value=value_msb, channel=channel)
+            self.midi_output_port.send(data_msb_msg)
+            
+            data_lsb_msg = mido.Message('control_change', control=38, value=value_lsb, channel=channel)
+            self.midi_output_port.send(data_lsb_msg)
+            
+            logging.info(f"MIDI NRPN sent: param={parameter} (MSB={param_msb}, LSB={param_lsb}), "
+                        f"value={value} (MSB={value_msb}, LSB={value_lsb}), channel={channel}")
+        except Exception as e:
+            logging.error(f"Failed to send NRPN: {e}")
     
     def send_program_change(self, program: int, channel: int = 0) -> None:
         """
@@ -157,6 +204,18 @@ class MIDIController:
             self.send_midi_cc14(int(cc_num), int(cc_val), channel)
             time.sleep(0.02)  # Slightly longer delay for 14-bit (sends 2 messages)
     
+    def send_nrpn_messages(self, nrpn_dict: Dict[int, int], channel: int = 0) -> None:
+        """
+        Send multiple NRPN messages from a dictionary.
+        
+        Args:
+            nrpn_dict: Dictionary of {parameter: value} where both are 0-16383
+            channel: MIDI channel (0-15)
+        """
+        for param, value in nrpn_dict.items():
+            self.send_nrpn(int(param), int(value), channel)
+            time.sleep(0.05)  # Longer delay for NRPN (sends 4 messages)
+    
     def send_sysex_messages(self, sysex_list: List[str], channel: int = 0) -> None:
         """
         Send multiple SysEx messages from a list.
@@ -172,12 +231,13 @@ class MIDIController:
     
     def send_midi_setup(self, config: Dict, channel: int = 0) -> None:
         """
-        Send initial MIDI setup messages (CC, 14-bit CC, Program Change, SysEx).
+        Send initial MIDI setup messages (CC, 14-bit CC, NRPN, Program Change, SysEx).
         
         Args:
             config: Configuration dictionary with optional keys:
                    'cc_messages': Dict of 7-bit CC messages
                    'cc14_messages': Dict of 14-bit CC messages
+                   'nrpn_messages': Dict of NRPN messages
                    'program_change': Program number
                    'sysex_messages': List of SysEx strings
             channel: MIDI channel (0-15)
@@ -196,6 +256,11 @@ class MIDIController:
         cc14_messages = config.get('cc14_messages', {})
         if cc14_messages:
             self.send_cc14_messages(cc14_messages, channel)
+        
+        # Send NRPN messages
+        nrpn_messages = config.get('nrpn_messages', {})
+        if nrpn_messages:
+            self.send_nrpn_messages(nrpn_messages, channel)
         
         # Send Program Change
         program = config.get('program_change')
@@ -297,6 +362,11 @@ class MIDIController:
         cc14_messages = layer_config.get('cc14_messages', {})
         if cc14_messages:
             self.send_cc14_messages(cc14_messages, channel)
+        
+        # Send NRPN messages
+        nrpn_messages = layer_config.get('nrpn_messages', {})
+        if nrpn_messages:
+            self.send_nrpn_messages(nrpn_messages, channel)
         
         # Send Program Change
         program = layer_config.get('program_change')

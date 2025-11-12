@@ -230,12 +230,12 @@ python autosamplerT.py --cc_messages "7,127" --cc14_messages "1,8192"
 - Range: 0-16383 (16,384 values)
 - Format: `"controller,value;controller,value"` (CLI) or `{controller: value}` (YAML)
 - Uses two messages automatically: MSB (controller N) + LSB (controller N+32)
-- Controllers: 0-31 only (14-bit CC uses pairs)
-- Example: CC1 (14-bit) sends CC1 (MSB) + CC33 (LSB)
+- Controllers: Any CC 0-127 can be 14-bit (uses CC N and CC N+32)
+- Example: CC45 (14-bit) sends CC45 (MSB) + CC77 (LSB)
 - Common uses:
   - CC 1: Modulation Wheel (0-16383, center=8192)
   - CC 11: Expression (0-16383)
-  - Pitch Bend range extension
+  - CC 45: User parameter (common for round-robin layer switching)
   - High-resolution filter sweeps
 
 ```
@@ -410,6 +410,77 @@ sampling:
   output_folder: "./output"        # Output directory
   lowest_note: 0                   # SFZ lowest note mapping
   highest_note: 127                # SFZ highest note mapping
+
+## Round-Robin Layers with CC14 (14-bit MIDI)
+
+For instruments that use 14-bit CC messages to switch between round-robin layers:
+
+### YAML Configuration
+
+```yaml
+sampling:
+  multisample_name: "synth_cc14_rr"
+  roundrobin_layers: 4
+  note_range:
+    start: 36  # C1
+    end: 96    # C7
+    interval: 1
+
+midi_interface:
+  midi_channels: 0
+
+sampling_midi:
+  # Per-round-robin-layer MIDI control
+  roundrobin_midi_control:
+    - roundrobin_layer: 0
+      midi_channel: 0
+      cc14_messages: {45: 0}        # Layer 1: CC45=0
+    - roundrobin_layer: 1
+      midi_channel: 0
+      cc14_messages: {45: 5461}     # Layer 2: CC45=5461
+    - roundrobin_layer: 2
+      midi_channel: 0
+      cc14_messages: {45: 10922}    # Layer 3: CC45=10922
+    - roundrobin_layer: 3
+      midi_channel: 0
+      cc14_messages: {45: 16383}    # Layer 4: CC45=16383
+```
+
+**Key Points:**
+- Each `roundrobin_layer` index (0-3) corresponds to a round-robin layer
+- `cc14_messages` uses 14-bit values (0-16383) 
+- CC45 is common for round-robin control, but any CC 0-127 works
+- AutosamplerT automatically sends MSB and LSB messages (e.g., CC45 + CC77)
+- Also supports: `cc_messages`, `program_change`, `sysex_messages` per layer
+
+### Command-Line (with YAML script)
+
+```bash
+python autosamplerT.py --script conf/my_cc14_roundrobin.yaml
+```
+
+### Calculating CC14 Values
+
+Distribute 14-bit range (0-16383) evenly across layers:
+
+**4 layers:**
+- Layer 0: 0 (0%)
+- Layer 1: 5461 (33.3%)
+- Layer 2: 10922 (66.6%)
+- Layer 3: 16383 (100%)
+
+**8 layers:**
+- Layer 0: 0
+- Layer 1: 2340
+- Layer 2: 4681
+- Layer 3: 7021
+- Layer 4: 9362
+- Layer 5: 11702
+- Layer 6: 14043
+- Layer 7: 16383
+
+Formula: `value = (16383 * layer_index) / (num_layers - 1)`
+```
 ```
 
 ## Sample Naming Convention
