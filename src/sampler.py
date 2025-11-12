@@ -245,11 +245,13 @@ class AutoSampler:
             frames = int(duration * self.samplerate)
             logging.info(f"Starting recording: {frames} frames ({duration:.1f}s)")
             
+            # Explicitly pass device for ASIO compatibility
             recording = sd.rec(
                 frames,
                 samplerate=self.samplerate,
                 channels=record_channels,
                 dtype='float32',
+                device=self.input_device,
                 blocking=False
             )
             
