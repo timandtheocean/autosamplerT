@@ -14,12 +14,13 @@
   - `--patch_normalize` - Normalize patch (maintains relative dynamics)
   - `--sample_normalize` - Normalize individual samples
   - `--trim_silence` - Trim silence from start/end
-  - `--auto_loop` - Find loop points using autocorrelation
+  - `--auto_loop` - Find loop points using autocorrelation (stored in WAV RIFF 'smpl' chunk)
   - `--dc_offset_removal` - Remove DC offset
-  - `--crossfade_loop MS` - Crossfade loop points
   - `--convert_bitdepth BITS` - Convert bit depth
   - `--dither` - Apply dithering when converting
   - `--backup` - Create backup before processing
+
+**Note:** `--crossfade_loop` was removed - loop points are stored in WAV RIFF 'smpl' chunk and the sampler application handles crossfading.
 
 ### 2. [COMPLETED] Help System - REORGANIZED AND ENHANCED
 **Status:** Complete with practical examples and clean organization

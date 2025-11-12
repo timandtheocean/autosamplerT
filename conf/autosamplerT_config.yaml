@@ -1,10 +1,11 @@
 audio_interface:
   bitdepth: 24
+  channel_offset: 2
   input_device_index: 16
   output_device_index: 16
   samplerate: 44100
 midi_interface:
-  midi_input_name: Prophet 6 1
+  midi_input_name: Prophet 6 0
   midi_input_valid: true
-  midi_output_name: Prophet 6 2
+  midi_output_name: Prophet 6 1
   midi_output_valid: true

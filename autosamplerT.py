@@ -88,9 +88,7 @@ def get_arg_parser() -> argparse.ArgumentParser:
                       help='Mono or stereo recording')
     audio.add_argument('--mono_channel', type=int, metavar='CH',
                       choices=[0, 1], help='Channel to use for mono recording (0=left, 1=right)')
-    audio.add_argument('--channel_offset', type=int, metavar='OFFSET',
-                      choices=[0, 2, 4, 6], 
-                      help='Stereo pair offset for multi-channel devices (0=ch 0-1, 2=ch 2-3, 4=ch 4-5, 6=ch 6-7)')
+    # Note: --channel_offset is set via --setup audio, not as CLI argument
     audio.add_argument('--gain', type=float, metavar='GAIN',
                       help='Input gain (0.0 to 2.0)')
     audio.add_argument('--latency_compensation', type=float, metavar='MS',
@@ -178,8 +176,6 @@ def get_arg_parser() -> argparse.ArgumentParser:
                                help='Fixed loop end time in seconds (optional)')
     postprocessing.add_argument('--dc_offset_removal', action='store_true',
                                help='Remove DC offset from samples')
-    postprocessing.add_argument('--crossfade_loop', type=float, metavar='MS',
-                               help='Crossfade loop points with equal-power curve (milliseconds, requires --auto_loop)')
     postprocessing.add_argument('--convert_bitdepth', type=int, metavar='BITS',
                                choices=[16, 24, 32], help='Convert to different bit depth')
     postprocessing.add_argument('--dither', action='store_true',
@@ -275,8 +271,8 @@ def show_help(parser: argparse.ArgumentParser, section: str) -> None:
         print("      --program_change 10 --cc_messages \"7,127;74,64\"\n")
         
         print("11. AUTO-LOOPING (Post-Processing)")
-        print("    Find loop points and apply crossfade to existing samples:")
-        print("    python autosamplerT.py --process MySynth --auto_loop --crossfade_loop 20\n")
+        print("    Find loop points in existing samples:")
+        print("    python autosamplerT.py --process MySynth --auto_loop\n")
         
         print("TIP: Add --test_mode to any example to verify without recording")
         print("     Example: python autosamplerT.py --test_mode --note_range_start C3 --note_range_end C5\n")
@@ -366,7 +362,7 @@ def main() -> None:
         'bitdepth': args.bitdepth,
         'mono_stereo': args.mono_stereo,
         'mono_channel': args.mono_channel,
-        'channel_offset': args.channel_offset,
+        # channel_offset is set via --setup audio, not from CLI args
         'gain': args.gain,
         'latency_compensation': args.latency_compensation,
         'patch_normalize': get_arg_if_set(args, 'patch_normalize'),
@@ -435,6 +431,12 @@ def main() -> None:
         # Split by semicolon: "msg1;msg2;msg3" -> ["msg1", "msg2", "msg3"]
         sysex_list = [msg.strip() for msg in args.sysex_messages.split(';') if msg.strip()]
     
+    # Parse cc14_messages - convert from string to dict format
+    cc14_dict = None
+    if args.cc14_messages is not None:
+        from src.sampler_midicontrol import parse_cc14_messages
+        cc14_dict = parse_cc14_messages(args.cc14_messages)
+    
     update_config_from_args(config, {
         'midi_input_name': args.midi_input_name,
         'midi_output_name': args.midi_output_name,
@@ -442,7 +444,7 @@ def main() -> None:
         'sysex_messages': sysex_list,
         'program_change': args.program_change,
         'cc_messages': args.cc_messages,
-        'cc14_messages': args.cc14_messages,
+        'cc14_messages': cc14_dict,
         'note_range': note_range_dict,
         'velocity_minimum': args.velocity_minimum,
         'velocity_layers_split': velocity_splits,
@@ -532,7 +534,6 @@ def main() -> None:
                 'loop_min_duration': args.loop_min_duration if args.loop_min_duration else "0.1",
                 'loop_start_time': args.loop_start_time,
                 'loop_end_time': args.loop_end_time,
-                'crossfade_loop': args.crossfade_loop,
                 'dc_offset_removal': args.dc_offset_removal,
                 'convert_bitdepth': args.convert_bitdepth,
                 'dither': args.dither,

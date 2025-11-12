@@ -37,7 +37,6 @@ class PostProcessor:
                     'sample_normalize': False,
                     'trim_silence': True,
                     'auto_loop': True,
-                    'crossfade_loop': 20,
                     'dc_offset_removal': True,
                     'convert_bitdepth': 16,
                     'dither': True,
@@ -126,12 +125,6 @@ class PostProcessor:
                         loop_end_sec = loop_points[1] / samplerate
                         loop_duration = loop_end_sec - loop_start_sec
                         print(f"  - Found loop points: {loop_start_sec:.3f}s - {loop_end_sec:.3f}s (duration: {loop_duration:.3f}s)")
-                        
-                        # Crossfade loop if requested
-                        crossfade_ms = operations.get('crossfade_loop')
-                        if crossfade_ms:
-                            audio_data = self._crossfade_loop(audio_data, loop_points, samplerate, crossfade_ms)
-                            print(f"  - Applied {crossfade_ms}ms equal-power crossfade")
                 
                 # Bit depth conversion
                 target_bitdepth = operations.get('convert_bitdepth')
@@ -690,60 +683,6 @@ class PostProcessor:
                 loop_start = loop_end - int(min_loop_length * samplerate)
         
         return (loop_start, loop_end)
-    
-    def _crossfade_loop(self, audio_data: np.ndarray, loop_points: Tuple[int, int],
-                        samplerate: int, crossfade_ms: float) -> np.ndarray:
-        """
-        Apply crossfade at loop points for smooth looping with equal-power crossfade.
-        
-        Args:
-            audio_data: Audio data as float32
-            loop_points: (loop_start, loop_end) in samples
-            samplerate: Sample rate in Hz
-            crossfade_ms: Crossfade length in milliseconds
-        
-        Returns:
-            Audio data with crossfaded loop points
-        """
-        loop_start, loop_end = loop_points
-        crossfade_samples = int(crossfade_ms * samplerate / 1000)
-        
-        # Make sure we have enough samples for crossfade
-        loop_length = loop_end - loop_start
-        if crossfade_samples > loop_length / 2:
-            crossfade_samples = loop_length // 4
-        
-        if crossfade_samples < 2:
-            return audio_data
-        
-        # Equal-power crossfade curves (smoother than linear)
-        fade_curve = np.linspace(0, np.pi/2, crossfade_samples)
-        fade_out = np.cos(fade_curve)
-        fade_in = np.sin(fade_curve)
-        
-        # Apply crossfade at loop end
-        crossfade_start = loop_end - crossfade_samples
-        crossfade_end = loop_end
-        loop_fade_end = loop_start + crossfade_samples
-        
-        if crossfade_start >= 0 and loop_fade_end <= len(audio_data):
-            if audio_data.ndim == 1:
-                # Mono
-                tail = audio_data[crossfade_start:crossfade_end].copy()
-                head = audio_data[loop_start:loop_fade_end].copy()
-                
-                # Apply equal-power crossfade
-                audio_data[crossfade_start:crossfade_end] = tail * fade_out + head * fade_in
-            else:
-                # Stereo/Multi-channel
-                for ch in range(audio_data.shape[1]):
-                    tail = audio_data[crossfade_start:crossfade_end, ch].copy()
-                    head = audio_data[loop_start:loop_fade_end, ch].copy()
-                    
-                    # Apply equal-power crossfade
-                    audio_data[crossfade_start:crossfade_end, ch] = tail * fade_out + head * fade_in
-        
-        return audio_data
     
     def _convert_bitdepth(self, audio_data: np.ndarray, current_depth: int, 
                          target_depth: int, use_dither: bool = False) -> np.ndarray:

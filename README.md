@@ -12,6 +12,8 @@ things are probably not fully working.
 ### Audio Configuration
 - Select audio device, bit depth (16/24/32), and sample rate
 - Support for mono (left/right channel selection) and stereo inputs
+- **ASIO multi-channel support**: Select specific stereo pairs on multi-channel interfaces (Ch A, Ch B, etc.)
+- ASIO, WASAPI, MME, WDM-KS, and DirectSound audio APIs supported
 - Audio latency compensation
 - Input gain control
 - Built-in silence detection for automatic trimming
@@ -46,7 +48,7 @@ things are probably not fully working.
   - Zero-crossing detection for smooth, click-free loop points
   - Automatic loop detection or manual start/end time specification
   - Configurable minimum loop duration (percentage or seconds: `55%` or `8.5`)
-- Crossfade looping: create smooth loop transitions with equal-power crossfade
+  - Loop points stored in WAV RIFF 'smpl' chunk (sampler handles crossfading)
 - Bit depth conversion: convert between 16/24/32-bit with optional dithering
 - Backup creation: automatically backup samples before processing
 - Debug mode: optional JSON sidecar files for detailed metadata (disabled by default)
@@ -136,6 +138,15 @@ python autosamplerT.py --mono_stereo mono --mono_channel 0
 
 # Record in mono using right channel
 python autosamplerT.py --mono_stereo mono --mono_channel 1
+
+# ASIO multi-channel: Record from Ch A (channels 0-1)
+python autosamplerT.py --channel_offset 0
+
+# ASIO multi-channel: Record from Ch B (channels 2-3)
+python autosamplerT.py --channel_offset 2
+
+# ASIO multi-channel: Record mono from Ch B left (channel 2)
+python autosamplerT.py --channel_offset 2 --mono_stereo mono --mono_channel 0
 
 # Enable normalization and silence detection
 python autosamplerT.py --patch_normalize --silence_detection
@@ -280,11 +291,8 @@ python autosamplerT.py --process "MySynth" --auto_loop --loop_min_duration 55%
 # Auto-loop with absolute minimum duration (8.5 seconds)
 python autosamplerT.py --process "MySynth" --auto_loop --loop_min_duration 8.5
 
-# Auto-loop with crossfade for smooth, click-free loops (30ms equal-power crossfade)
-python autosamplerT.py --process "MySynth" --auto_loop --loop_min_duration 50% --crossfade_loop 30
-
 # Auto-loop with manual start/end times (for precise control)
-python autosamplerT.py --process "MySynth" --auto_loop --loop_start_time 1.5 --loop_end_time 3.2 --crossfade_loop 30
+python autosamplerT.py --process "MySynth" --auto_loop --loop_start_time 1.5 --loop_end_time 3.2
 ```
 
 **Bit Depth Conversion:**
@@ -303,7 +311,7 @@ python autosamplerT.py --process "MySynth" \
   --dc_offset_removal \
   --trim_silence \
   --patch_normalize \
-  --auto_loop --loop_min_duration 50% --crossfade_loop 30 \
+  --auto_loop --loop_min_duration 50% \
   --backup
 
 # Aggressive processing for maximum quality
@@ -311,7 +319,7 @@ python autosamplerT.py --process "MySynth" \
   --dc_offset_removal \
   --trim_silence \
   --patch_normalize \
-  --auto_loop --loop_min_duration 8.0 --crossfade_loop 50 \
+  --auto_loop --loop_min_duration 8.0 \
   --convert_bitdepth 16 --dither \
   --backup
 ```
@@ -557,7 +565,7 @@ python autosamplerT.py --process "op1-pipedream" \
   --dc_offset_removal \
   --trim_silence \
   --patch_normalize \
-  --auto_loop --loop_min_duration 55% --crossfade_loop 30
+  --auto_loop --loop_min_duration 55%
 ```
 
 This will:
@@ -565,7 +573,6 @@ This will:
 - Trim silence from start/end (typically ~1 second)
 - Normalize all samples together to maintain relative dynamics
 - Find loop points for each sample (minimum 55% of trimmed sample length)
-- Apply 30ms equal-power crossfade at loop points
 - Embed loop points in WAV 'smpl' chunk for sampler compatibility
 
 **Expected Results:**
@@ -632,7 +639,7 @@ If the requested loop duration exceeds the sample length, autosamplerT automatic
 Using 80% of sample duration: 8.4s
 ```
 
-### Advanced: Manual Loop Points with Crossfade
+### Advanced: Manual Loop Points
 
 For precise control over loop points (e.g., syncing to musical phrases):
 
@@ -640,11 +647,10 @@ For precise control over loop points (e.g., syncing to musical phrases):
 python autosamplerT.py --process "MySynth" \
   --auto_loop \
   --loop_start_time 1.5 \
-  --loop_end_time 8.2 \
-  --crossfade_loop 50
+  --loop_end_time 8.2
 ```
 
-This creates a loop from 1.5 to 8.2 seconds with a 50ms crossfade, ignoring autocorrelation analysis.
+This creates a loop from 1.5 to 8.2 seconds, ignoring autocorrelation analysis. Loop points are embedded in the WAV file's RIFF 'smpl' chunk, and your sampler application will handle the crossfading.
 
 ## Troubleshooting
 

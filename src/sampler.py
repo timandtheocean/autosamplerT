@@ -156,14 +156,14 @@ class AutoSampler:
             True if audio setup successful, False otherwise
         """
         try:
-            # Set default devices
+            # Note: We do NOT set sd.default.device here because it can conflict with
+            # ASIO AsioSettings. Instead, we pass device explicitly to sd.rec()
             if self.input_device is not None and self.output_device is not None:
-                sd.default.device = (self.input_device, self.output_device)
-                logging.info(f"Audio devices set: IN={self.input_device}, OUT={self.output_device}")
+                logging.info(f"Audio devices configured: IN={self.input_device}, OUT={self.output_device}")
             else:
                 logging.warning("Audio devices not configured - using system defaults")
             
-            # Set sample rate
+            # Set default sample rate (this is safe)
             sd.default.samplerate = self.samplerate
             logging.info(f"Sample rate: {self.samplerate} Hz")
             
@@ -521,12 +521,15 @@ class AutoSampler:
         # Send MIDI note on
         self.send_midi_note(note, velocity, channel)
         
-        # Start recording immediately (or after small latency compensation)
-        latency_comp = self.audio_config.get('latency_compensation', 0.0) / 1000.0  # ms to seconds
-        if latency_comp > 0 and not self.test_mode:
-            time.sleep(latency_comp)
+        # Check if we're using ASIO (ASIO doesn't work from threads)
+        device_info = sd.query_devices(self.input_device) if self.input_device is not None else None
+        is_asio = False
+        if device_info:
+            host_apis = sd.query_hostapis()
+            host_api_name = host_apis[device_info['hostapi']]['name']
+            is_asio = 'ASIO' in host_api_name
         
-        # Start recording in a separate thread so we can send note-off during recording
+        # Start recording
         import threading
         recording_complete = threading.Event()
         audio_result = [None]
@@ -536,19 +539,33 @@ class AutoSampler:
             recording_complete.set()
         
         if not self.test_mode:
-            # Start recording thread
-            record_thread_obj = threading.Thread(target=record_thread)
-            record_thread_obj.start()
-            
-            # Wait for hold time, then send note off
-            time.sleep(self.hold_time)
-            note_off = mido.Message('note_off', note=note, velocity=0, channel=channel)
-            if self.midi_output_port:
-                self.midi_output_port.send(note_off)
-            
-            # Wait for recording to complete
-            recording_complete.wait()
-            audio = audio_result[0]
+            if is_asio:
+                # ASIO must run in main thread - record directly without threading
+                logging.debug("ASIO detected - recording in main thread")
+                
+                # Record the full duration in main thread (ASIO requirement)
+                audio = self.record_audio(total_duration)
+                
+                # Send note-off after recording completes (note was already released)
+                # This is OK because we record the full duration anyway
+                note_off = mido.Message('note_off', note=note, velocity=0, channel=channel)
+                if self.midi_output_port:
+                    self.midi_output_port.send(note_off)
+            else:
+                # Non-ASIO: use threading as before
+                # Start recording thread
+                record_thread_obj = threading.Thread(target=record_thread)
+                record_thread_obj.start()
+                
+                # Wait for hold time, then send note off
+                time.sleep(self.hold_time)
+                note_off = mido.Message('note_off', note=note, velocity=0, channel=channel)
+                if self.midi_output_port:
+                    self.midi_output_port.send(note_off)
+                
+                # Wait for recording to complete
+                recording_complete.wait()
+                audio = audio_result[0]
         else:
             # Test mode: just record without MIDI timing
             audio = self.record_audio(total_duration)

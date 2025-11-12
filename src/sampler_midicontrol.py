@@ -293,6 +293,11 @@ class MIDIController:
         if cc_messages:
             self.send_cc_messages(cc_messages, channel)
         
+        # Send 14-bit CC messages
+        cc14_messages = layer_config.get('cc14_messages', {})
+        if cc14_messages:
+            self.send_cc14_messages(cc14_messages, channel)
+        
         # Send Program Change
         program = layer_config.get('program_change')
         if program is not None:
@@ -430,8 +435,8 @@ def parse_cc14_messages(cc14_input) -> Dict[int, int]:
                 cc_val = int(parts[1].strip())
                 
                 # Validate 14-bit ranges
-                if not (0 <= cc_num <= 31):
-                    logging.error(f"14-bit CC controller number {cc_num} out of range (0-31)")
+                if not (0 <= cc_num <= 127):
+                    logging.error(f"14-bit CC controller number {cc_num} out of range (0-127)")
                     continue
                 if not (0 <= cc_val <= 16383):
                     logging.error(f"14-bit CC value {cc_val} out of range (0-16383)")
