@@ -1,6 +1,9 @@
+import os
+# Enable ASIO support in sounddevice (must be set before importing sounddevice)
+os.environ["SD_ENABLE_ASIO"] = "1"
+
 import argparse
 import sys
-import os
 import yaml
 import re
 from typing import Optional

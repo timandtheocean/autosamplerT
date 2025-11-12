@@ -14,11 +14,14 @@ Author: AutosamplerT
 License: MIT
 """
 
+import os
+# Enable ASIO support in sounddevice (must be set before importing sounddevice)
+os.environ["SD_ENABLE_ASIO"] = "1"
+
 import sounddevice as sd
 import numpy as np
 import mido
 import time
-import os
 import logging
 import wave
 from pathlib import Path

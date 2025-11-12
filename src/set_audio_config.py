@@ -1,6 +1,9 @@
+import os
+# Enable ASIO support in sounddevice (must be set before importing sounddevice)
+os.environ["SD_ENABLE_ASIO"] = "1"
+
 import sounddevice as sd
 import yaml
-import os
 import platform
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), '../conf/autosamplerT_config.yaml')
@@ -13,17 +16,23 @@ def clear_screen():
 
 def list_output_devices():
     devices = sd.query_devices()
+    host_apis = sd.query_hostapis()
     output_devices = [(idx, dev['name']) for idx, dev in enumerate(devices) if dev['max_output_channels'] > 0]
     print("Available OUTPUT devices:")
     for idx, name in output_devices:
-        print(f"  {idx}: {name}")
+        dev = devices[idx]
+        host_api_name = host_apis[dev['hostapi']]['name']
+        print(f"  {idx}: {name} [{host_api_name}]")
     return devices, output_devices
 
 def list_input_devices(devices):
+    host_apis = sd.query_hostapis()
     input_devices = [(idx, dev['name']) for idx, dev in enumerate(devices) if dev['max_input_channels'] > 0]
     print("Available INPUT devices:")
     for idx, name in input_devices:
-        print(f"  {idx}: {name}")
+        dev = devices[idx]
+        host_api_name = host_apis[dev['hostapi']]['name']
+        print(f"  {idx}: {name} [{host_api_name}]")
     return input_devices
 
 def get_user_selection(devices, prompt):

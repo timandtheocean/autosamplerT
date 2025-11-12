@@ -1,7 +1,10 @@
+import os
+# Enable ASIO support in sounddevice (must be set before importing sounddevice)
+os.environ["SD_ENABLE_ASIO"] = "1"
+
 import sounddevice as sd
 import logging
 import yaml
-import os
 from typing import Dict, Any, List, Tuple
 
 # Configure logging
@@ -17,14 +20,23 @@ def load_config() -> Dict[str, Any]:
 
 def list_devices() -> Tuple[Any, List[Tuple[int, str]], List[Tuple[int, str]]]:
     devices = sd.query_devices()
+    host_apis = sd.query_hostapis()
+    
     input_devices = [(idx, dev['name']) for idx, dev in enumerate(devices) if dev['max_input_channels'] > 0]
     output_devices = [(idx, dev['name']) for idx, dev in enumerate(devices) if dev['max_output_channels'] > 0]
+    
     print("Available INPUT devices:")
     for idx, name in input_devices:
-        print(f"  {idx}: {name}")
+        dev = devices[idx]
+        host_api_name = host_apis[dev['hostapi']]['name']
+        print(f"  {idx}: {name} [{host_api_name}]")
+    
     print("\nAvailable OUTPUT devices:")
     for idx, name in output_devices:
-        print(f"  {idx}: {name}")
+        dev = devices[idx]
+        host_api_name = host_apis[dev['hostapi']]['name']
+        print(f"  {idx}: {name} [{host_api_name}]")
+    
     return devices, input_devices, output_devices
 
 def main() -> None:
