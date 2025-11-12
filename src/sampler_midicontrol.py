@@ -308,6 +308,16 @@ class MIDIController:
         if cc_messages:
             self.send_cc_messages(cc_messages, channel)
         
+        # Send 14-bit CC messages
+        cc14_messages = layer_config.get('cc14_messages', {})
+        if cc14_messages:
+            self.send_cc14_messages(cc14_messages, channel)
+        
+        # Send NRPN messages
+        nrpn_messages = layer_config.get('nrpn_messages', {})
+        if nrpn_messages:
+            self.send_nrpn_messages(nrpn_messages, channel)
+        
         # Send Program Change
         program = layer_config.get('program_change')
         if program is not None:
