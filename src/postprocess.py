@@ -637,6 +637,7 @@ class PostProcessor:
                                 min_loop_length: float, quality_threshold: float = 0.7) -> Optional[Tuple[int, float]]:
         """
         Find the longest loop with acceptable quality within the sustain region.
+        Optimizes for maximum loop length while maintaining quality standards.
         
         Args:
             audio_region: Audio data within sustain region
@@ -647,11 +648,25 @@ class PostProcessor:
         Returns:
             (loop_length_samples, quality_score) or None if no good loop found
         """
-        # Calculate autocorrelation for the entire region
-        max_lag = len(audio_region) // 2
-        min_lag = int(min_loop_length * samplerate)
+        # Try to use as much of the sustain region as possible
+        # Start with longest possible loop (entire sustain region) and work down
+        max_loop_length = len(audio_region)
+        min_loop_samples = int(min_loop_length * samplerate)
         
-        if min_lag >= max_lag:
+        print(f"  - Searching for longest loop: max={max_loop_length/samplerate:.2f}s, min={min_loop_length:.2f}s")
+        
+        # Strategy 1: Try longest possible loop first (entire sustain region)
+        if max_loop_length >= min_loop_samples:
+            if self._validate_loop_quality(audio_region, max_loop_length, samplerate):
+                quality = 1.0  # Perfect loop of entire region
+                print(f"  - Optimal: Using entire sustain region as loop ({max_loop_length/samplerate:.2f}s)")
+                return (max_loop_length, quality)
+        
+        # Strategy 2: Use autocorrelation to find repeating patterns
+        # Search from 90% down to min_length in 5% steps for longer loops
+        max_lag = len(audio_region) // 2
+        
+        if min_loop_samples >= max_lag:
             return None
         
         # Compute autocorrelation
@@ -660,36 +675,50 @@ class PostProcessor:
                                    mode='full')
         correlation = correlation[len(correlation)//2:]  # Only positive lags
         
-        # Find peaks (potential loop points) - search from longest to shortest
-        peaks, properties = signal.find_peaks(correlation[min_lag:], 
-                                             height=quality_threshold * np.max(correlation),
-                                             distance=min_lag//4)
+        # Normalize correlation
+        if np.max(np.abs(correlation)) > 0:
+            correlation = correlation / np.max(np.abs(correlation))
+        
+        # Strategy 3: Test specific loop lengths from longest to shortest
+        # Try 90%, 80%, 70%, 60% of sustain region first
+        test_percentages = [0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60, 0.55]
+        for pct in test_percentages:
+            test_length = int(len(audio_region) * pct)
+            if test_length >= min_loop_samples:
+                if self._validate_loop_quality(audio_region, test_length, samplerate):
+                    quality = correlation[test_length] if test_length < len(correlation) else 0.9
+                    print(f"  - Found {pct*100:.0f}% loop: length={test_length/samplerate:.2f}s, quality={quality:.3f}")
+                    return (test_length, quality)
+        
+        # Strategy 4: Use autocorrelation peaks (original method)
+        # Find peaks with relaxed threshold to get more candidates
+        peaks, properties = signal.find_peaks(correlation[min_loop_samples:], 
+                                             height=0.5,  # Lower threshold to find more candidates
+                                             distance=min_loop_samples//4)
         
         if len(peaks) == 0:
-            # Try lower threshold
-            peaks, properties = signal.find_peaks(correlation[min_lag:], 
-                                                 height=0.5 * np.max(correlation),
-                                                 distance=min_lag//4)
+            # Try even lower threshold
+            peaks, properties = signal.find_peaks(correlation[min_loop_samples:], 
+                                                 height=0.3,
+                                                 distance=min_loop_samples//4)
         
-        if len(peaks) == 0:
-            return None
-        
-        # Adjust peak indices (they're relative to min_lag offset)
-        peaks = peaks + min_lag
-        
-        # Sort by length (longest first)
-        peak_qualities = properties['peak_heights']
-        sorted_indices = np.argsort(peaks)[::-1]  # Descending order
-        
-        # Find the longest loop that meets quality threshold
-        for idx in sorted_indices:
-            loop_length = peaks[idx]
-            quality = peak_qualities[idx] / np.max(correlation)
+        if len(peaks) > 0:
+            # Adjust peak indices (they're relative to min_lag offset)
+            peaks = peaks + min_loop_samples
+            peak_qualities = properties['peak_heights']
             
-            # Validate loop quality with multi-scale analysis
-            if self._validate_loop_quality(audio_region, loop_length, samplerate):
-                print(f"  - Found loop: length={loop_length/samplerate:.2f}s, quality={quality:.3f}")
-                return (loop_length, quality)
+            # Sort by length (longest first)
+            sorted_indices = np.argsort(peaks)[::-1]
+            
+            # Find the longest loop that meets quality threshold
+            for idx in sorted_indices:
+                loop_length = peaks[idx]
+                quality = peak_qualities[idx]
+                
+                # Validate loop quality with multi-scale analysis
+                if self._validate_loop_quality(audio_region, loop_length, samplerate):
+                    print(f"  - Found loop from autocorrelation: length={loop_length/samplerate:.2f}s, quality={quality:.3f}")
+                    return (loop_length, quality)
         
         return None
     
@@ -697,6 +726,7 @@ class PostProcessor:
                                samplerate: int) -> bool:
         """
         Validate loop quality using multiple criteria.
+        Optimized to accept longer loops more easily.
         
         Args:
             audio_region: Audio data
@@ -720,24 +750,32 @@ class PostProcessor:
         if len(loop_begin) < loop_length // 2 or len(loop_end) < loop_length // 2:
             return False
         
-        # Criterion 1: RMS amplitude similarity (within 10%)
+        # Criterion 1: RMS amplitude similarity
+        # Relaxed for longer loops: 15% tolerance for loops > 3s, 10% for shorter
         rms_begin = np.sqrt(np.mean(loop_begin ** 2))
         rms_end = np.sqrt(np.mean(loop_end ** 2))
         
         if rms_end > 0:
             rms_diff = abs(rms_begin - rms_end) / rms_end
-            if rms_diff > 0.1:  # More than 10% difference
+            max_diff = 0.15 if loop_length > 3 * samplerate else 0.10
+            if rms_diff > max_diff:
                 return False
         
-        # Criterion 2: Waveform correlation (above 0.8)
+        # Criterion 2: Waveform correlation
+        # Relaxed for longer loops: 0.7 for loops > 3s, 0.8 for shorter
         min_len = min(len(loop_begin), len(loop_end))
+        if min_len < 100:  # Need minimum samples for correlation
+            return False
+            
         correlation = np.corrcoef(loop_begin[:min_len], loop_end[:min_len])[0, 1]
+        min_correlation = 0.7 if loop_length > 3 * samplerate else 0.8
         
-        if correlation < 0.8:
+        if correlation < min_correlation:
             return False
         
-        # Criterion 3: Penalize very short loops (< 0.5s)
-        if loop_length < 0.5 * samplerate:
+        # Criterion 3: Minimum loop length (very permissive)
+        # Only reject extremely short loops (< 0.3s)
+        if loop_length < 0.3 * samplerate:
             return False
         
         return True
