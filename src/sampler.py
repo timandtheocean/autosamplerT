@@ -37,6 +37,180 @@ from src.sampler_midicontrol import MIDIController, parse_sysex_messages
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 
 
+class SamplingDisplay:
+    """
+    Manages the static terminal display during sampling.
+    Provides progress bars and real-time statistics without scrolling.
+    """
+    
+    def __init__(self, total_notes: int, velocity_layers: int, roundrobin_layers: int,
+                 hold_time: float, release_time: float, pause_time: float):
+        """
+        Initialize the sampling display.
+        
+        Args:
+            total_notes: Total number of notes to sample
+            velocity_layers: Number of velocity layers
+            roundrobin_layers: Number of round-robin layers
+            hold_time: Note hold time in seconds
+            release_time: Release time in seconds
+            pause_time: Pause between samples in seconds
+        """
+        self.total_notes = total_notes
+        self.velocity_layers = velocity_layers
+        self.roundrobin_layers = roundrobin_layers
+        self.samples_per_note = velocity_layers * roundrobin_layers
+        self.total_samples = total_notes * self.samples_per_note
+        self.hold_time = hold_time
+        self.release_time = release_time
+        self.pause_time = pause_time
+        
+        self.current_note_index = 0
+        self.current_sample_index = 0
+        self.current_note = 0
+        self.current_velocity = 0
+        self.current_rr = 0
+        self.current_phase = "Idle"
+        self.midi_messages = []
+        
+        # ANSI codes
+        self.CLEAR_SCREEN = '\033[2J\033[H'
+        self.HIDE_CURSOR = '\033[?25l'
+        self.SHOW_CURSOR = '\033[?25h'
+        
+    def start(self):
+        """Start the display (clear screen and hide cursor)."""
+        print(self.CLEAR_SCREEN + self.HIDE_CURSOR, end='', flush=True)
+    
+    def stop(self):
+        """Stop the display (show cursor)."""
+        print(self.SHOW_CURSOR, end='', flush=True)
+    
+    def update(self, note: int, velocity: int, rr_index: int, vel_layer: int, 
+               phase: str = "Sampling", midi_msgs: list = None):
+        """
+        Update the display with current sampling information.
+        
+        Args:
+            note: Current MIDI note number
+            velocity: Current velocity
+            rr_index: Round-robin index
+            vel_layer: Velocity layer index
+            phase: Current phase (e.g., "Sampling", "Recording", "Processing")
+            midi_msgs: List of recent MIDI messages sent
+        """
+        self.current_note = note
+        self.current_velocity = velocity
+        self.current_rr = rr_index
+        self.current_phase = phase
+        
+        # Calculate sample index within current note
+        sample_in_note = vel_layer * self.roundrobin_layers + rr_index
+        
+        # Calculate overall progress
+        self.current_sample_index = self.current_note_index * self.samples_per_note + sample_in_note
+        
+        if midi_msgs:
+            self.midi_messages = midi_msgs[-5:]  # Keep last 5 messages
+        
+        self._render()
+    
+    def increment_note(self):
+        """Increment the note counter."""
+        self.current_note_index += 1
+    
+    def _render(self):
+        """Render the complete display."""
+        import sys
+        
+        # Move cursor to top-left
+        print('\033[H', end='')
+        
+        # Header
+        print("=" * 80)
+        print("AUTOSAMPLERT - SAMPLING IN PROGRESS".center(80))
+        print("=" * 80)
+        print()
+        
+        # Current sample info
+        note_name = self._get_note_name(self.current_note)
+        print(f"  Current Note:  {note_name} (MIDI {self.current_note})")
+        print(f"  Velocity:      {self.current_velocity} (Layer {self._get_vel_layer() + 1}/{self.velocity_layers})")
+        print(f"  Round-Robin:   {self.current_rr + 1}/{self.roundrobin_layers}")
+        print(f"  Phase:         {self.current_phase}")
+        print()
+        
+        # Timing info
+        print(f"  Hold: {self.hold_time:.1f}s  |  Release: {self.release_time:.1f}s  |  Pause: {self.pause_time:.1f}s")
+        print()
+        
+        # Current note progress bar
+        sample_in_note = self._get_sample_in_note()
+        note_progress = sample_in_note / self.samples_per_note if self.samples_per_note > 0 else 0
+        note_bar = self._draw_progress_bar(note_progress, 60, 
+                                           f"Note Progress: {sample_in_note + 1}/{self.samples_per_note}")
+        print(note_bar)
+        print()
+        
+        # Overall progress bar
+        overall_progress = self.current_sample_index / self.total_samples if self.total_samples > 0 else 0
+        overall_bar = self._draw_progress_bar(overall_progress, 60,
+                                              f"Total Progress: {self.current_sample_index}/{self.total_samples} samples")
+        print(overall_bar)
+        print()
+        
+        # Notes progress
+        notes_bar = self._draw_progress_bar(self.current_note_index / self.total_notes if self.total_notes > 0 else 0, 60,
+                                            f"Notes: {self.current_note_index}/{self.total_notes}")
+        print(notes_bar)
+        print()
+        
+        # MIDI messages (last 5)
+        if self.midi_messages:
+            print("-" * 80)
+            print("  Recent MIDI Messages:")
+            for msg in self.midi_messages:
+                print(f"    {msg}")
+            print("-" * 80)
+        
+        # Flush to ensure immediate update
+        sys.stdout.flush()
+    
+    def _get_vel_layer(self) -> int:
+        """Calculate current velocity layer from sample index."""
+        sample_in_note = self._get_sample_in_note()
+        return sample_in_note // self.roundrobin_layers
+    
+    def _get_sample_in_note(self) -> int:
+        """Calculate current sample index within the current note."""
+        return self.current_sample_index % self.samples_per_note
+    
+    def _draw_progress_bar(self, progress: float, width: int, label: str) -> str:
+        """
+        Draw a progress bar.
+        
+        Args:
+            progress: Progress value (0.0 to 1.0)
+            width: Width of the progress bar in characters
+            label: Label to display above the bar
+            
+        Returns:
+            Formatted progress bar string
+        """
+        filled = int(width * progress)
+        bar = '█' * filled + '░' * (width - filled)
+        percentage = int(progress * 100)
+        
+        return f"  {label}\n  [{bar}] {percentage}%"
+    
+    def _get_note_name(self, note: int) -> str:
+        """Convert MIDI note number to note name."""
+        note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+        octave = (note // 12) - 1
+        note_name = note_names[note % 12]
+        return f"{note_name}{octave}"
+
+
 class AutoSampler:
     """
     Main autosampling class that coordinates MIDI and audio operations.
@@ -671,7 +845,12 @@ class AutoSampler:
         Returns:
             Processed audio array or None
         """
-        logging.info(f"Sampling: Note={note}, Vel={velocity}, RR={rr_index}")
+        # Log with simplified format as requested
+        note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+        octave = (note // 12) - 1
+        note_name = note_names[note % 12]
+        logging.info(f"Sampling: Note={note_name}{octave} ({note}), Vel={velocity}, RR={rr_index}, "
+                    f"Hold={self.hold_time}s, Release={self.release_time}s, Pause={self.pause_time}s")
         
         # Calculate total recording duration
         total_duration = self.hold_time + self.release_time
@@ -732,16 +911,12 @@ class AutoSampler:
             logging.error("Audio recording returned None")
             return None
         
-        logging.info(f"Processing audio: {len(audio)} frames, {audio.shape}")
-        
         # Note: Silence trimming removed from recording - now only in postprocessing
         # This ensures we capture the full recording duration and any clicks at the end
         # are visible for debugging
         
         # Normalize individual sample (optional)
-        logging.debug("Normalizing audio...")
         audio_processed = self.normalize_audio(audio)
-        logging.info(f"Audio processing complete: {len(audio_processed)} frames")
         
         return audio_processed
     
@@ -827,88 +1002,139 @@ class AutoSampler:
         """
         sample_list = []
         
-        # Get MIDI control configurations
-        velocity_midi_config = self.sampling_midi_config.get('velocity_midi_control', [])
-        roundrobin_midi_config = self.sampling_midi_config.get('roundrobin_midi_control', [])
+        # Calculate total notes
+        all_notes = list(range(start_note, end_note + 1, interval))
+        total_notes = len(all_notes)
         
-        logging.info(f"Velocity MIDI config: {len(velocity_midi_config)} layers")
-        logging.info(f"Round-robin MIDI config: {len(roundrobin_midi_config)} layers")
+        # Initialize display
+        display = SamplingDisplay(
+            total_notes=total_notes,
+            velocity_layers=self.velocity_layers,
+            roundrobin_layers=self.roundrobin_layers,
+            hold_time=self.hold_time,
+            release_time=self.release_time,
+            pause_time=self.pause_time
+        )
         
-        # Send initial MIDI setup messages (from sampling_midi or fallback to midi_interface)
-        initial_config = {}
-        if self.sampling_midi_config:
-            initial_config = self.sampling_midi_config
-        else:
-            # Fallback to old config structure
-            initial_config = self.midi_config
+        # Start display
+        display.start()
         
-        if self.midi_controller:
-            self.midi_controller.send_midi_setup(initial_config, channel)
-        
-        # Iterate through notes
-        for note in range(start_note, end_note + 1, interval):
-            # Iterate through velocity layers
-            for vel_layer in range(self.velocity_layers):
-                velocity = self.calculate_velocity_value(vel_layer, self.velocity_layers)
-                
-                # Apply velocity layer MIDI settings
-                if self.midi_controller and velocity_midi_config:
-                    self.midi_controller.apply_velocity_layer_midi(
-                        vel_layer, velocity_midi_config, channel, self.midi_message_delay
-                    )
-                
-                # Iterate through round-robin layers
-                for rr_layer in range(self.roundrobin_layers):
-                    # Apply round-robin layer MIDI settings
-                    if self.midi_controller and roundrobin_midi_config:
-                        self.midi_controller.apply_roundrobin_layer_midi(
-                            rr_layer, roundrobin_midi_config, channel, self.midi_message_delay
+        try:
+            # Get MIDI control configurations
+            velocity_midi_config = self.sampling_midi_config.get('velocity_midi_control', [])
+            roundrobin_midi_config = self.sampling_midi_config.get('roundrobin_midi_control', [])
+            
+            # Send initial MIDI setup messages (from sampling_midi or fallback to midi_interface)
+            initial_config = {}
+            if self.sampling_midi_config:
+                initial_config = self.sampling_midi_config
+            else:
+                # Fallback to old config structure
+                initial_config = self.midi_config
+            
+            if self.midi_controller:
+                self.midi_controller.send_midi_setup(initial_config, channel)
+            
+            # Iterate through notes
+            for note_idx, note in enumerate(all_notes):
+                # Iterate through velocity layers
+                for vel_layer in range(self.velocity_layers):
+                    velocity = self.calculate_velocity_value(vel_layer, self.velocity_layers)
+                    
+                    # Collect MIDI messages for display
+                    midi_msgs = []
+                    
+                    # Apply velocity layer MIDI settings
+                    if self.midi_controller and velocity_midi_config:
+                        self.midi_controller.apply_velocity_layer_midi(
+                            vel_layer, velocity_midi_config, channel, self.midi_message_delay
                         )
+                        midi_msgs.append(f"Velocity Layer {vel_layer}: Applied MIDI settings")
                     
-                    # Determine which channel to use for this note
-                    if self.midi_controller:
-                        note_channel = self.midi_controller.get_layer_channel(
-                            vel_layer, rr_layer, velocity_midi_config, 
-                            roundrobin_midi_config, channel
-                        )
-                    else:
-                        note_channel = channel
-                    
-                    # Sample the note
-                    audio = self.sample_note(note, velocity, note_channel, rr_layer)
-                    
-                    # Generate filename
-                    filename = self.generate_sample_filename(note, velocity, rr_layer)
-                    filepath = self.output_folder / filename
-                    
-                    # Prepare metadata
-                    metadata = {
-                        'note': note,
-                        'velocity': velocity,
-                        'velocity_layer': vel_layer,
-                        'roundrobin_layer': rr_layer,
-                        'samplerate': self.samplerate,
-                        'bitdepth': self.bitdepth,
-                        'channels': self.channels,
-                        'duration': (self.hold_time + self.release_time) if self.test_mode else (len(audio) / self.samplerate if audio is not None else 0)
-                    }
-                    
-                    # In test mode, still add to sample list for SFZ generation
-                    if self.test_mode:
-                        sample_list.append({'file': str(filepath), **metadata})
-                    elif audio is not None:
-                        # Store for potential patch normalization
-                        self.recorded_samples.append((audio, metadata))
+                    # Iterate through round-robin layers
+                    for rr_layer in range(self.roundrobin_layers):
+                        # Update display
+                        display.update(note, velocity, rr_layer, vel_layer, "Preparing", midi_msgs)
                         
-                        # Save immediately if not doing patch normalization
-                        if not self.patch_normalize:
-                            self.save_wav_file(audio, filepath, metadata)
-                            sample_list.append({'file': str(filepath), **metadata})
+                        # Apply round-robin layer MIDI settings
+                        if self.midi_controller and roundrobin_midi_config:
+                            self.midi_controller.apply_roundrobin_layer_midi(
+                                rr_layer, roundrobin_midi_config, channel, self.midi_message_delay
+                            )
+                            midi_msgs.append(f"Round-Robin {rr_layer}: Applied MIDI settings")
+                        
+                        # Determine which channel to use for this note
+                        if self.midi_controller:
+                            note_channel = self.midi_controller.get_layer_channel(
+                                vel_layer, rr_layer, velocity_midi_config, 
+                                roundrobin_midi_config, channel
+                            )
                         else:
-                            sample_list.append({'audio': audio, 'file': str(filepath), **metadata})
-                    
-                    # Check for interactive pause (after each note across all velocity/RR layers)
-                    # Only check after completing all layers for this note
+                            note_channel = channel
+                        
+                        # Update display for sampling
+                        midi_msgs.append(f"Note ON: Note={note}, Vel={velocity}, Ch={note_channel}, RR={rr_layer}")
+                        display.update(note, velocity, rr_layer, vel_layer, 
+                                     f"Recording ({self.hold_time + self.release_time:.1f}s)", midi_msgs)
+                        
+                        # Sample the note
+                        audio = self.sample_note(note, velocity, note_channel, rr_layer)
+                        
+                        # Update display for processing
+                        display.update(note, velocity, rr_layer, vel_layer, "Processing", midi_msgs)
+                        
+                        # Generate filename
+                        filename = self.generate_sample_filename(note, velocity, rr_layer)
+                        filepath = self.output_folder / filename
+                        
+                        # Prepare metadata
+                        metadata = {
+                            'note': note,
+                            'velocity': velocity,
+                            'velocity_layer': vel_layer,
+                            'roundrobin_layer': rr_layer,
+                            'samplerate': self.samplerate,
+                            'bitdepth': self.bitdepth,
+                            'channels': self.channels,
+                            'duration': (self.hold_time + self.release_time) if self.test_mode else (len(audio) / self.samplerate if audio is not None else 0)
+                        }
+                        
+                        # In test mode, still add to sample list for SFZ generation
+                        if self.test_mode:
+                            sample_list.append({'file': str(filepath), **metadata})
+                        elif audio is not None:
+                            # Store for potential patch normalization
+                            self.recorded_samples.append((audio, metadata))
+                            
+                            # Save immediately if not doing patch normalization
+                            if not self.patch_normalize:
+                                display.update(note, velocity, rr_layer, vel_layer, "Saving", midi_msgs)
+                                self.save_wav_file(audio, filepath, metadata)
+                                sample_list.append({'file': str(filepath), **metadata})
+                            else:
+                                sample_list.append({'audio': audio, 'file': str(filepath), **metadata})
+                        
+                        # Check for interactive pause (after each note across all velocity/RR layers)
+                        # Only check after completing all layers for this note
+                        if rr_layer == self.roundrobin_layers - 1 and vel_layer == self.velocity_layers - 1:
+                            display.increment_note()
+                            self.check_interactive_pause()
+                            # Restart display after interactive pause
+                            if self.interactive_every > 0 and self.interactive_notes_sampled % self.interactive_every == 0:
+                                display.start()
+                        
+                        # Pause between samples
+                        if self.pause_time > 0:
+                            display.update(note, velocity, rr_layer, vel_layer, "Pausing", midi_msgs)
+                            time.sleep(self.pause_time)
+        
+        finally:
+            # Stop display
+            display.stop()
+        
+        # Apply patch normalization if enabled
+        if self.patch_normalize and self.recorded_samples:
+            self.apply_patch_normalization()
                     if rr_layer == self.roundrobin_layers - 1 and vel_layer == self.velocity_layers - 1:
                         self.check_interactive_pause()
                     
