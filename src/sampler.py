@@ -1137,6 +1137,11 @@ class AutoSampler:
             logging.info(f"Velocity layers: {self.velocity_layers}, Round-robin: {self.roundrobin_layers}")
             logging.info(f"Timing: hold={self.hold_time:.2f}s, release={self.release_time:.2f}s, pause={self.pause_time:.2f}s")
             
+            # Check if patch iteration is enabled
+            patch_iteration = self.sampling_midi_config.get('patch_iteration', {})
+            if patch_iteration.get('enabled', False):
+                return self._run_with_patch_iteration(start_note, end_note, interval, channel, patch_iteration)
+            
             # Show summary and get confirmation (skip in test mode)
             if not self.test_mode:
                 if not self.show_sampling_summary(start_note, end_note, interval):
@@ -1163,6 +1168,108 @@ class AutoSampler:
             return False
         finally:
             self.cleanup()
+    
+    def _run_with_patch_iteration(self, start_note: int, end_note: int, interval: int, 
+                                   channel: int, patch_iteration: Dict) -> bool:
+        """
+        Run sampling with patch iteration - sample multiple patches with program changes.
+        
+        Args:
+            start_note: Starting MIDI note
+            end_note: Ending MIDI note
+            interval: Note interval
+            channel: MIDI channel
+            patch_iteration: Patch iteration configuration
+            
+        Returns:
+            True if all patches sampled successfully
+        """
+        program_start = patch_iteration.get('program_start', 0)
+        program_end = patch_iteration.get('program_end', 0)
+        auto_naming = patch_iteration.get('auto_naming', True)
+        base_name = patch_iteration.get('name_template', 'Patch')
+        
+        # Store original multisample name
+        original_name = self.multisample_name
+        
+        print("\n" + "="*70)
+        print("PATCH ITERATION MODE")
+        print("="*70)
+        print(f"Sampling {program_end - program_start + 1} patches (program {program_start}-{program_end})")
+        print(f"Notes per patch: {start_note} to {end_note} (interval: {interval})")
+        print(f"Auto-naming: {'Enabled' if auto_naming else 'Disabled'}")
+        print("="*70)
+        
+        if not self.test_mode:
+            response = input("\nContinue? [y/N]: ")
+            if response.lower() != 'y':
+                logging.info("Sampling cancelled by user")
+                return False
+        
+        success_count = 0
+        failed_patches = []
+        
+        # Iterate through programs
+        for program in range(program_start, program_end + 1):
+            print(f"\n{'='*70}")
+            print(f"Sampling Program {program} ({program - program_start + 1}/{program_end - program_start + 1})")
+            print(f"{'='*70}")
+            
+            # Generate patch name
+            if auto_naming:
+                patch_name = f"{base_name}_{program:03d}"
+            else:
+                patch_name = f"{original_name}_{program:03d}"
+            
+            # Update multisample name and folder
+            self.multisample_name = patch_name
+            self.multisample_folder = self.base_output_folder / self.multisample_name
+            self.output_folder = self.multisample_folder / 'samples'
+            
+            print(f"Patch name: {patch_name}")
+            
+            # Send program change
+            if self.midi_controller:
+                self.midi_controller.send_program_change(program, channel)
+                time.sleep(self.midi_message_delay * 2)  # Extra delay after program change
+                print(f"Program change sent: {program}")
+            
+            try:
+                # Sample the range for this patch
+                sample_list = self.sample_range(start_note, end_note, interval, channel)
+                
+                logging.info(f"Program {program} complete: {len(sample_list)} samples recorded")
+                print(f"[SUCCESS] Program {program}: {len(sample_list)} samples")
+                
+                # Generate SFZ
+                if self.output_format == 'sfz':
+                    self.generate_sfz(sample_list)
+                
+                success_count += 1
+                
+            except Exception as e:
+                logging.error(f"Failed to sample program {program}: {e}", exc_info=True)
+                print(f"[ERROR] Program {program} failed: {e}")
+                failed_patches.append(program)
+            
+            # Clear recorded samples for next patch
+            self.recorded_samples = []
+        
+        # Restore original name
+        self.multisample_name = original_name
+        self.multisample_folder = self.base_output_folder / self.multisample_name
+        self.output_folder = self.multisample_folder / 'samples'
+        
+        # Summary
+        print(f"\n{'='*70}")
+        print("PATCH ITERATION COMPLETE")
+        print(f"{'='*70}")
+        print(f"Successful: {success_count}/{program_end - program_start + 1}")
+        if failed_patches:
+            print(f"Failed programs: {', '.join(map(str, failed_patches))}")
+        print(f"{'='*70}")
+        
+        return len(failed_patches) == 0
 
 
 def main() -> None:
