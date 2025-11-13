@@ -1,0 +1,46 @@
+name: "Auto-loop Test - 20 Patches"
+description: "Sample 20 patches (program 0-19) with 4 notes each for auto-loop testing"
+
+# Audio settings
+audio:
+  samplerate: 44100
+  bitdepth: 24
+  mono_stereo: stereo
+
+# MIDI interface
+midi_interface:
+  output_port_name: "Prophet 6"
+  cc_messages: {7: 127}  # Full volume
+
+# Sampling configuration
+sampling:
+  # Sample 4 notes per patch (C2, C3, C4, C5)
+  note_range_start: 36   # C2
+  note_range_end: 84     # C5
+  note_range_interval: 12  # One note per octave = 4 notes total
+  
+  velocity_layers: 1
+  roundrobin_layers: 1
+  
+  # Same timings as before
+  hold_time: 8.0
+  release_time: 2.0
+
+# Patch iteration - sample programs 0-19
+sampling_midi:
+  patch_iteration:
+    enabled: true
+    program_start: 0
+    program_end: 19
+    auto_naming: true  # Automatically generate patch names
+
+# Post-processing
+postprocessing:
+  auto_loop: true
+  loop_min_duration: "50%"
+  quality_threshold: 0.7
+  skip_attack_auto: true
+
+# Export formats
+export:
+  formats: []  # No export, just test auto-loop

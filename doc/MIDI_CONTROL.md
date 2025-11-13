@@ -12,11 +12,10 @@ Complete guide to MIDI control features in AutosamplerT - enabling advanced samp
 6. [Combined Layer Control](#combined-layer-control)
 7. [SysEx Messages](#sysex-messages)
 8. [MIDI Message Delay](#midi-message-delay)
-9. [Practical Use Cases](#practical-use-cases)
-10. [Configuration Reference](#configuration-reference)
-11. [Testing and Verification](#testing-and-verification)
-12. [Tips and Best Practices](#tips-and-best-practices)
-13. [Troubleshooting](#troubleshooting)
+9. [Configuration Reference](#configuration-reference)
+10. [Testing and Verification](#testing-and-verification)
+11. [Tips and Best Practices](#tips-and-best-practices)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -532,109 +531,6 @@ Send Program Change → Wait 150ms → Send CC → Wait 150ms → Note-on
 
 ---
 
-## Practical Use Cases
-
-### 1. Multi-Mode Synthesizer Sampling
-
-Sample all oscillator modes of a synth:
-
-```yaml
-sampling_midi:
-  roundrobin_layers:
-    - layer: 1
-      cc: [{controller: 70, value: 0}]      # Waveform: Sine
-    - layer: 2
-      cc: [{controller: 70, value: 42}]     # Waveform: Triangle
-    - layer: 3
-      cc: [{controller: 70, value: 84}]     # Waveform: Sawtooth
-    - layer: 4
-      cc: [{controller: 70, value: 127}]    # Waveform: Square
-```
-
-### 2. Modulation Wheel Layers
-
-Sample different modulation wheel positions:
-
-```yaml
-sampling_midi:
-  velocity_layers:
-    - velocity: 20
-      cc: [{controller: 1, value: 0}]       # Mod wheel: 0%
-    - velocity: 50
-      cc: [{controller: 1, value: 32}]      # Mod wheel: 25%
-    - velocity: 80
-      cc: [{controller: 1, value: 64}]      # Mod wheel: 50%
-    - velocity: 110
-      cc: [{controller: 1, value: 96}]      # Mod wheel: 75%
-    - velocity: 127
-      cc: [{controller: 1, value: 127}]     # Mod wheel: 100%
-```
-
-### 3. Multi-Timbral Setup
-
-Sample different sounds using different MIDI channels:
-
-```yaml
-sampling_midi:
-  roundrobin_layers:
-    - layer: 1
-      midi_channel: 1         # Channel 1
-      program_change: 0
-    - layer: 2
-      midi_channel: 2         # Channel 2
-      program_change: 8
-    - layer: 3
-      midi_channel: 3         # Channel 3
-      program_change: 16
-```
-
-### 4. Expression + Filter Layers
-
-Combine expression and filter for natural dynamics:
-
-```yaml
-sampling_midi:
-  velocity_layers:
-    - velocity: 40            # ppp
-      cc:
-        - {controller: 11, value: 30}     # Expression
-        - {controller: 74, value: 20}     # Filter
-    
-    - velocity: 80            # mf
-      cc:
-        - {controller: 11, value: 80}
-        - {controller: 74, value: 80}
-    
-    - velocity: 120           # fff
-      cc:
-        - {controller: 11, value: 127}
-        - {controller: 74, value: 127}
-```
-
-### 5. Yamaha DX7 Algorithm Sweep
-
-```yaml
-sampling_midi:
-  midi_message_delay: 0.2
-  
-  roundrobin_layers:
-    - layer: 1
-      sysex:
-        - header: "43 10 7F"
-          controller: "10"      # Algorithm
-          value: 0              # Algorithm 0
-    - layer: 2
-      sysex:
-        - controller: "10"
-          value: 10             # Algorithm 10
-    - layer: 3
-      sysex:
-        - controller: "10"
-          value: 20             # Algorithm 20
-```
-
----
-
 ## Configuration Reference
 
 ### Structure Overview
@@ -984,7 +880,7 @@ MIDI control works seamlessly with:
 ## Related Documentation
 
 - [Setup & Configuration](SETUP.md) - MIDI device configuration
-- [Scripting System](SCRIPTING.md) - YAML script structure
+- [Scripting System](SCRIPTING.md) - YAML script structure, patch iteration, practical workflows
 - [CLI Documentation](CLI.md) - Command-line interface
 - [Sampling Engine](SAMPLING.md) - Recording parameters
 
@@ -1023,4 +919,4 @@ duration = total_samples × (hold + release + pause)
 
 ---
 
-*Last updated: November 11, 2025*
+*Last updated: November 13, 2025*

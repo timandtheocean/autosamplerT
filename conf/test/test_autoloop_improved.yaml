@@ -1,0 +1,75 @@
+# Test Script: Improved Auto-Loop Algorithm
+#
+# Purpose: Test the new envelope-based sustain detection and longest-good-loop selection
+#
+# Features Being Tested:
+# 1. Automatic attack phase detection and skipping
+# 2. Sustain region detection based on amplitude variance
+# 3. Longest good loop selection with quality validation
+# 4. Multi-scale loop quality analysis (RMS, correlation, spectral)
+# 5. Intelligent fallback hierarchy
+#
+# Test Parameters:
+# - Single note (C4) with long duration to allow for loop analysis
+# - Hold time: 8 seconds (enough for sustain analysis)
+# - Release time: 2 seconds
+# - Auto-loop enabled with new algorithm
+# - Quality threshold: 0.7 (70% minimum quality)
+# - Loop end margin: 10% (skip release tail)
+#
+# Expected Behavior:
+# - Algorithm detects attack peak and finds most stable sustain region
+# - Finds longest loop with good quality (correlation > 0.8, RMS match < 10%)
+# - Skips attack automatically
+# - Avoids release tail (last 10%)
+# - Reports sustain region, loop length, and quality score
+
+name: "Improved Auto-Loop Test"
+description: "Test envelope-based sustain detection and longest-good-loop selection"
+
+# Audio configuration
+audio:
+  samplerate: 44100
+  bitdepth: 24
+  mono_stereo: stereo
+
+# MIDI interface
+midi_interface:
+  output_port_name: "Prophet 6"
+  channel: 0
+
+# Sampling configuration
+sampling:
+  note_range_start: 60    # C4 only
+  note_range_end: 60
+  note_range_interval: 1
+  velocity_layers: 1
+  roundrobin_layers: 1
+  
+  # Long duration for loop analysis
+  hold_time: 8.0       # 8 seconds
+  release_time: 2.0    # 2 seconds
+  pause_time: 1.0      # 1 second
+
+# Post-processing with new auto-loop parameters
+postprocessing:
+  trim_silence: false    # Keep full recording for loop analysis
+  auto_loop: true        # Enable auto-loop
+  
+  # New auto-loop parameters
+  loop_min_duration: "50%"      # Minimum 50% of sample length
+  loop_strategy: "longest_good" # Find longest good loop (default)
+  loop_quality_threshold: 0.7   # 70% minimum quality
+  skip_attack_auto: true        # Automatically detect and skip attack (default)
+  loop_end_margin: 0.1          # Skip last 10% (avoid release)
+  
+  normalize_db: -1
+
+# Export
+export:
+  formats: []
+
+# Output
+output:
+  folder: "output/test_autoloop_improved"
+  multisample_name: "autoloop_test"
