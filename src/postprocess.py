@@ -566,22 +566,20 @@ class PostProcessor:
         
         return start + closest_idx
     
-    def _detect_sustain_region(self, audio_data: np.ndarray, samplerate: int, 
-                               end_margin: float = 0.1) -> Tuple[int, int]:
+    def _detect_sustain_region(self, audio_data: np.ndarray, samplerate: int) -> Tuple[int, int]:
         """
-        Detect the sustain region by analyzing amplitude envelope and variance.
-        Automatically skips attack phase and avoids release tail.
+        Detect the sustain region by finding where attack ends and where release begins.
+        Automatically determines if there's a release tail.
         
         Args:
             audio_data: Mono audio data as float32
             samplerate: Sample rate in Hz
-            end_margin: Fraction of sample to leave at end (0.0-1.0, default 0.1 = 10%)
         
         Returns:
             (sustain_start, sustain_end) in samples
         """
-        # Calculate RMS envelope with 10ms windows
-        window_size = int(0.01 * samplerate)  # 10ms windows
+        # Calculate RMS envelope with 50ms windows
+        window_size = int(0.05 * samplerate)  # 50ms windows
         hop_size = window_size // 2
         
         envelope = []
@@ -593,43 +591,133 @@ class PostProcessor:
         envelope = np.array(envelope)
         
         if len(envelope) < 10:
-            # Too short for analysis, use middle section
+            # Too short for analysis
             start_idx = int(len(audio_data) * 0.2)
-            end_idx = int(len(audio_data) * (1.0 - end_margin))
+            end_idx = int(len(audio_data) * 0.95)
             return (start_idx, end_idx)
+        
+        # Smooth envelope to reduce noise
+        if len(envelope) > 5:
+            from scipy.ndimage import gaussian_filter1d
+            envelope = gaussian_filter1d(envelope, sigma=2)
         
         # Find peak (attack maximum)
         peak_idx = np.argmax(envelope)
+        peak_level = envelope[peak_idx]
         
-        # Find sustain region: area with most stable amplitude after peak
-        # Calculate variance in sliding windows
-        variance_window = min(20, len(envelope) // 4)  # Adaptive window size
-        min_variance = float('inf')
-        best_region_start = peak_idx
+        # Find where attack ends: look for where envelope reaches 90% of peak and stays stable
+        search_start = max(1, len(envelope) // 10)
+        sustain_start_idx = peak_idx
         
-        # Search from peak to end-margin
-        end_search = int(len(envelope) * (1.0 - end_margin))
+        sustain_threshold = 0.90 * peak_level
         
-        for i in range(peak_idx, end_search - variance_window):
-            window_env = envelope[i:i + variance_window]
-            variance = np.var(window_env)
-            
-            if variance < min_variance:
-                min_variance = variance
-                best_region_start = i
+        for i in range(search_start, len(envelope)):
+            if envelope[i] >= sustain_threshold:
+                # Check stability ahead (100-250ms)
+                stability_window = min(5, len(envelope) - i - 1)
+                if stability_window > 0:
+                    future_region = envelope[i:i + stability_window]
+                    variation = np.std(future_region) / np.mean(future_region) if np.mean(future_region) > 0 else 1.0
+                    
+                    if variation < 0.15:
+                        sustain_start_idx = i
+                        break
         
-        # Convert envelope indices back to sample indices
-        sustain_start = best_region_start * hop_size
-        sustain_end = int(len(audio_data) * (1.0 - end_margin))
+        # Find where release begins: search backwards for where level drops below 80% of peak
+        release_threshold = 0.80 * peak_level
+        sustain_end_idx = len(envelope) - 1
+        
+        # Look backwards from end to find where sustained level ends
+        # We want the LAST continuous region above threshold (the sustain)
+        # not the first point we encounter (which could be in the release tail)
+        
+        # First, find all regions above threshold
+        above_threshold = envelope >= release_threshold
+        
+        # Find the longest continuous region above threshold after attack
+        in_region = False
+        region_start = sustain_start_idx
+        best_region_start = sustain_start_idx
+        best_region_end = sustain_start_idx
+        best_region_length = 0
+        
+        for i in range(sustain_start_idx, len(envelope)):
+            if above_threshold[i]:
+                if not in_region:
+                    region_start = i
+                    in_region = True
+            else:
+                if in_region:
+                    # Region ended
+                    region_length = i - region_start
+                    if region_length > best_region_length:
+                        best_region_start = region_start
+                        best_region_end = i
+                        best_region_length = region_length
+                    in_region = False
+        
+        # Check if we're still in a region at the end
+        if in_region:
+            region_length = len(envelope) - region_start
+            if region_length > best_region_length:
+                best_region_start = region_start
+                best_region_end = len(envelope) - 1
+                best_region_length = region_length
+        
+        # Use the end of the best (longest) region as sustain end
+        if best_region_length > 0:
+            sustain_end_idx = best_region_end
+        else:
+            # Fallback: no clear region found
+            sustain_end_idx = len(envelope) - 1
+        
+        # Check if there's actually a release tail
+        has_release = False
+        if sustain_end_idx < len(envelope) - 3:  # At least 150ms before end
+            # Check if level drops significantly after sustain
+            remaining_envelope = envelope[sustain_end_idx:]
+            if len(remaining_envelope) > 2:
+                sustain_level = np.mean(envelope[max(sustain_start_idx, sustain_end_idx - 5):sustain_end_idx])
+                release_level = np.mean(remaining_envelope)
+                if release_level < 0.7 * sustain_level:  # 30% drop
+                    has_release = True
+        
+        # If no clear release, use almost entire sample (leave 50ms safety margin)
+        if not has_release:
+            safety_margin = max(1, int(0.05 * samplerate / hop_size))  # 50ms
+            sustain_end_idx = len(envelope) - safety_margin
+        
+        # Convert envelope indices to sample indices
+        sustain_start = sustain_start_idx * hop_size
+        sustain_end = sustain_end_idx * hop_size
+        
+        # Ensure reasonable bounds
+        sustain_start = max(0, min(sustain_start, len(audio_data) - 1))
+        sustain_end = max(sustain_start + samplerate, min(sustain_end, len(audio_data) - 1))
+        
+        # Report findings
+        attack_duration = sustain_start / samplerate
+        sustain_duration = (sustain_end - sustain_start) / samplerate
+        release_duration = (len(audio_data) - sustain_end) / samplerate
+        
+        print(f"  - Attack phase: 0.00s - {attack_duration:.2f}s ({sustain_start} samples)")
+        print(f"  - Sustain region: {attack_duration:.2f}s - {sustain_end/samplerate:.2f}s ({sustain_duration:.2f}s)")
+        if has_release:
+            print(f"  - Release tail detected: {sustain_end/samplerate:.2f}s - {len(audio_data)/samplerate:.2f}s ({release_duration:.2f}s)")
+        else:
+            print(f"  - No release tail detected (using {release_duration:.2f}s safety margin)")
+        
+        return (sustain_start, sustain_end)
         
         # Ensure reasonable range
         sustain_start = max(0, min(sustain_start, len(audio_data) - 1))
-        sustain_end = max(sustain_start + samplerate, sustain_end)  # At least 1 second
+        sustain_end = max(sustain_start + int(0.5 * samplerate), sustain_end)  # At least 0.5 seconds
         sustain_end = min(sustain_end, len(audio_data) - 1)
         
         print(f"  - Sustain region detected: {sustain_start/samplerate:.2f}s - {sustain_end/samplerate:.2f}s")
-        print(f"  - Skipped attack phase: {sustain_start/samplerate:.2f}s")
-        print(f"  - Avoided release tail: {end_margin*100:.0f}% ({(len(audio_data)-sustain_end)/samplerate:.2f}s)")
+        print(f"  - Attack phase ends at: {sustain_start/samplerate:.2f}s (sample {sustain_start})")
+        if end_margin > 0:
+            print(f"  - End margin: {end_margin*100:.0f}% ({(len(audio_data)-sustain_end)/samplerate:.2f}s)")
         
         return (sustain_start, sustain_end)
     
@@ -727,27 +815,41 @@ class PostProcessor:
         """
         Validate loop quality using multiple criteria.
         Optimized to accept longer loops more easily.
+        Ensures both loop segments are in stable regions.
         
         Args:
-            audio_region: Audio data
+            audio_region: Audio data (should be sustain region)
             loop_length: Loop length in samples
             samplerate: Sample rate in Hz
         
         Returns:
             True if loop meets quality criteria
         """
-        if loop_length <= 0 or loop_length >= len(audio_region):
+        if loop_length <= 0 or loop_length > len(audio_region):
             return False
         
-        # Extract loop segments
-        loop_start = len(audio_region) - loop_length
-        if loop_start < 0:
-            return False
+        # For very long loops (>80% of region), we need to be more careful
+        # Compare the MIDDLE section with the END section, not the start
+        if loop_length > len(audio_region) * 0.8:
+            # Use last 20% for comparison (most stable part of sustain)
+            comparison_length = int(len(audio_region) * 0.2)
+            if comparison_length < 0.3 * samplerate:  # At least 0.3s
+                comparison_length = min(int(0.3 * samplerate), loop_length // 2)
+            
+            # Compare middle section with end section
+            mid_point = len(audio_region) // 2
+            loop_begin = audio_region[mid_point:mid_point + comparison_length]
+            loop_end = audio_region[-comparison_length:]
+        else:
+            # Normal validation: compare start of loop with end
+            loop_start = len(audio_region) - loop_length
+            if loop_start < 0:
+                return False
+            
+            loop_begin = audio_region[loop_start:loop_start + min(loop_length, len(audio_region) - loop_start)]
+            loop_end = audio_region[-loop_length:]
         
-        loop_begin = audio_region[loop_start:loop_start + min(loop_length, len(audio_region) - loop_start)]
-        loop_end = audio_region[-loop_length:]
-        
-        if len(loop_begin) < loop_length // 2 or len(loop_end) < loop_length // 2:
+        if len(loop_begin) < 100 or len(loop_end) < 100:
             return False
         
         # Criterion 1: RMS amplitude similarity
@@ -829,7 +931,7 @@ class PostProcessor:
         
         # Priority 2: Envelope-based sustain region detection
         if skip_attack_auto:
-            sustain_start, sustain_end = self._detect_sustain_region(mono, samplerate, loop_end_margin)
+            sustain_start, sustain_end = self._detect_sustain_region(mono, samplerate)
         else:
             # Use simple 20% skip if automatic detection disabled
             sustain_start = int(len(mono) * 0.2)
@@ -864,21 +966,38 @@ class PostProcessor:
         if result is not None:
             loop_length, quality = result
             
-            # Position loop at end of sustain region
+            # IMPORTANT: loop_length is relative to sustain_region, so we need to
+            # position the loop WITHIN the sustain region
+            # Place loop at the end of sustain region, working backwards
             loop_end = sustain_end
             loop_start = sustain_end - loop_length
             
-            # Ensure loop_start is within bounds
+            # Ensure loop_start doesn't go before sustain_start
             if loop_start < sustain_start:
+                # If the loop is too long for the sustain region, clip it
                 loop_start = sustain_start
+                print(f"  - Loop clipped to fit sustain region")
             
             # Find zero crossings for smooth transitions
-            loop_start = self._find_zero_crossing(mono, loop_start, search_radius=500)
+            # But don't allow them to go before sustain_start
+            loop_start_zc = self._find_zero_crossing(mono, loop_start, search_radius=500)
+            if loop_start_zc < sustain_start:
+                # Zero crossing would place us before sustain - use sustain_start instead
+                loop_start = sustain_start
+            else:
+                loop_start = loop_start_zc
+            
             loop_end = self._find_zero_crossing(mono, loop_end, search_radius=500)
+            
+            # Final validation - ensure loop is within sustain region
+            if loop_start < sustain_start:
+                print(f"  - Clamping loop start to sustain start ({sustain_start/samplerate:.2f}s)")
+                loop_start = sustain_start
             
             # Validate final loop length
             final_length = (loop_end - loop_start) / samplerate
             print(f"  - Final loop: {loop_start/samplerate:.2f}s - {loop_end/samplerate:.2f}s (length: {final_length:.2f}s)")
+            print(f"  - Sustain region: {sustain_start/samplerate:.2f}s - {sustain_end/samplerate:.2f}s")
             
             return (loop_start, loop_end)
         
