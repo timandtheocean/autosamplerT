@@ -34,7 +34,33 @@ import struct
 # MIDI Control module
 from src.sampler_midicontrol import MIDIController, parse_sysex_messages
 
+# Custom logging handler to capture log messages for display
+class LogBufferHandler(logging.Handler):
+    """Logging handler that keeps the last N log messages in a buffer."""
+    
+    def __init__(self, max_lines=10):
+        super().__init__()
+        self.log_buffer = []
+        self.max_lines = max_lines
+    
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            self.log_buffer.append(msg)
+            if len(self.log_buffer) > self.max_lines:
+                self.log_buffer.pop(0)
+        except Exception:
+            self.handleError(record)
+    
+    def get_logs(self):
+        return list(self.log_buffer)
+
+# Set up logging with buffer handler
+log_buffer_handler = LogBufferHandler(max_lines=10)
+log_buffer_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s: %(message)s'))
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
+logging.getLogger().addHandler(log_buffer_handler)
 
 
 class SamplingDisplay:
@@ -44,7 +70,7 @@ class SamplingDisplay:
     """
     
     def __init__(self, total_notes: int, velocity_layers: int, roundrobin_layers: int,
-                 hold_time: float, release_time: float, pause_time: float):
+                 hold_time: float, release_time: float, pause_time: float, log_handler=None):
         """
         Initialize the sampling display.
         
@@ -55,6 +81,7 @@ class SamplingDisplay:
             hold_time: Note hold time in seconds
             release_time: Release time in seconds
             pause_time: Pause between samples in seconds
+            log_handler: LogBufferHandler instance for displaying recent logs
         """
         self.total_notes = total_notes
         self.velocity_layers = velocity_layers
@@ -64,6 +91,7 @@ class SamplingDisplay:
         self.hold_time = hold_time
         self.release_time = release_time
         self.pause_time = pause_time
+        self.log_handler = log_handler
         
         self.current_note_index = 0
         self.current_sample_index = 0
@@ -73,10 +101,29 @@ class SamplingDisplay:
         self.current_phase = "Idle"
         self.midi_messages = []
         
+        # Interactive pause state
+        self.is_paused = False
+        self.pause_message = ""
+        self.pause_progress = 0.0
+        self.pause_remaining = 0.0
+        
+        # Get terminal width
+        self.terminal_width = self._get_terminal_width()
+        
         # ANSI codes
         self.CLEAR_SCREEN = '\033[2J\033[H'
         self.HIDE_CURSOR = '\033[?25l'
         self.SHOW_CURSOR = '\033[?25h'
+    
+    def _get_terminal_width(self) -> int:
+        """Get the current terminal width."""
+        try:
+            import shutil
+            width = shutil.get_terminal_size().columns
+            # Minimum width of 80, maximum of 200 for readability
+            return max(80, min(200, width))
+        except Exception:
+            return 80  # Default fallback
         
     def start(self):
         """Start the display (clear screen and hide cursor)."""
@@ -119,17 +166,36 @@ class SamplingDisplay:
         """Increment the note counter."""
         self.current_note_index += 1
     
+    def set_pause_state(self, paused: bool, message: str = "", progress: float = 0.0, remaining: float = 0.0):
+        """
+        Set the pause state and update display.
+        
+        Args:
+            paused: Whether sampling is paused
+            message: Pause message to display
+            progress: Pause progress (0.0 to 1.0)
+            remaining: Remaining time in seconds
+        """
+        self.is_paused = paused
+        self.pause_message = message
+        self.pause_progress = progress
+        self.pause_remaining = remaining
+        self._render()
+    
     def _render(self):
         """Render the complete display."""
         import sys
         
-        # Move cursor to top-left
-        print('\033[H', end='')
+        # Update terminal width (in case window was resized)
+        self.terminal_width = self._get_terminal_width()
+        
+        # Move cursor to top-left and clear to end of screen
+        print('\033[H\033[J', end='')
         
         # Header
-        print("=" * 80)
-        print("AUTOSAMPLERT - SAMPLING IN PROGRESS".center(80))
-        print("=" * 80)
+        print("=" * self.terminal_width)
+        print("AUTOSAMPLERT - SAMPLING IN PROGRESS".center(self.terminal_width))
+        print("=" * self.terminal_width)
         print()
         
         # Current sample info
@@ -144,34 +210,64 @@ class SamplingDisplay:
         print(f"  Hold: {self.hold_time:.1f}s  |  Release: {self.release_time:.1f}s  |  Pause: {self.pause_time:.1f}s")
         print()
         
-        # Current note progress bar
-        sample_in_note = self._get_sample_in_note()
-        note_progress = sample_in_note / self.samples_per_note if self.samples_per_note > 0 else 0
-        note_bar = self._draw_progress_bar(note_progress, 60, 
-                                           f"Note Progress: {sample_in_note + 1}/{self.samples_per_note}")
-        print(note_bar)
-        print()
+        # Progress bar width (25% smaller than terminal width, leave room for margins)
+        progress_bar_width = int((self.terminal_width * 0.75) - 20)
         
-        # Overall progress bar
-        overall_progress = self.current_sample_index / self.total_samples if self.total_samples > 0 else 0
-        overall_bar = self._draw_progress_bar(overall_progress, 60,
+        # Overall progress bar - clamp to 100%
+        overall_progress = min(1.0, self.current_sample_index / self.total_samples if self.total_samples > 0 else 0)
+        overall_bar = self._draw_progress_bar(overall_progress, progress_bar_width,
                                               f"Total Progress: {self.current_sample_index}/{self.total_samples} samples")
         print(overall_bar)
         print()
         
-        # Notes progress
-        notes_bar = self._draw_progress_bar(self.current_note_index / self.total_notes if self.total_notes > 0 else 0, 60,
+        # Notes progress - clamp to 100%
+        notes_progress = min(1.0, self.current_note_index / self.total_notes if self.total_notes > 0 else 0)
+        notes_bar = self._draw_progress_bar(notes_progress, progress_bar_width,
                                             f"Notes: {self.current_note_index}/{self.total_notes}")
         print(notes_bar)
         print()
         
+        # Interactive pause status (if paused)
+        if self.is_paused:
+            print("=" * self.terminal_width)
+            print("  ⏸  INTERACTIVE PAUSE")
+            print("=" * self.terminal_width)
+            print(f"  {self.pause_message}")
+            if self.pause_remaining > 0:
+                # Draw pause progress bar
+                bar_width = progress_bar_width
+                filled = int(bar_width * self.pause_progress)
+                bar = '█' * filled + '░' * (bar_width - filled)
+                print(f"  [{bar}] {self.pause_remaining:.1f}s")
+            print("=" * self.terminal_width)
+            print()
+        
         # MIDI messages (last 5)
         if self.midi_messages:
-            print("-" * 80)
+            print("-" * self.terminal_width)
             print("  Recent MIDI Messages:")
             for msg in self.midi_messages:
+                # Truncate messages to fit terminal width
+                max_msg_len = self.terminal_width - 6  # Account for "    " prefix and margins
+                if len(msg) > max_msg_len:
+                    msg = msg[:max_msg_len - 3] + "..."
                 print(f"    {msg}")
-            print("-" * 80)
+            print("-" * self.terminal_width)
+        
+        # Log messages (last 10 lines)
+        if self.log_handler:
+            print()
+            print("=" * self.terminal_width)
+            print("  Recent Log Messages:")
+            print("=" * self.terminal_width)
+            log_lines = self.log_handler.get_logs()
+            for log_line in log_lines:
+                # Truncate long lines to fit terminal width
+                max_log_len = self.terminal_width - 4  # Account for "  " prefix and margins
+                if len(log_line) > max_log_len:
+                    log_line = log_line[:max_log_len - 3] + "..."
+                print(f"  {log_line}")
+            print("=" * self.terminal_width)
         
         # Flush to ensure immediate update
         sys.stdout.flush()
@@ -373,12 +469,15 @@ class AutoSampler:
             logging.error(f"Audio setup failed: {e}")
             return False
     
-    def check_interactive_pause(self) -> None:
+    def check_interactive_pause(self, display: SamplingDisplay = None) -> None:
         """
         Check if an interactive pause is needed and handle user interaction.
         
         Pauses sampling after every N notes if interactive_sampling is configured.
         User can either press Enter to continue immediately or wait for auto-resume.
+        
+        Args:
+            display: SamplingDisplay instance to show pause status on main screen
         """
         # Check if interactive sampling is enabled and threshold reached
         if self.interactive_every <= 0:
@@ -387,98 +486,25 @@ class AutoSampler:
         self.interactive_notes_sampled += 1
         
         if self.interactive_notes_sampled % self.interactive_every == 0:
-            # Clear screen and show interactive pause UI
             import sys
             
-            # ANSI escape codes for terminal control
-            CLEAR_SCREEN = '\033[2J\033[H'  # Clear screen and move to top
-            HIDE_CURSOR = '\033[?25l'       # Hide cursor
-            SHOW_CURSOR = '\033[?25h'       # Show cursor
-            
-            # Use print instead of logging for cleaner output
-            print(CLEAR_SCREEN, end='', flush=True)
-            print(HIDE_CURSOR, end='', flush=True)
-            
-            # Display header
-            print("=" * 70)
-            print("INTERACTIVE PAUSE".center(70))
-            print("=" * 70)
-            print()
-            
-            # Sampling progress
-            print(f"  Notes Sampled:     {self.interactive_notes_sampled}")
-            print(f"  Samples per Note:  {self.velocity_layers} velocity × {self.roundrobin_layers} round-robin = {self.velocity_layers * self.roundrobin_layers}")
-            print(f"  Total Samples:     {self.interactive_notes_sampled * self.velocity_layers * self.roundrobin_layers}")
-            print()
-            
-            # Timing information
-            print(f"  Hold Time:         {self.hold_time:.2f}s")
-            print(f"  Release Time:      {self.release_time:.2f}s")
-            print(f"  Pause Time:        {self.pause_time:.2f}s")
-            print(f"  Time per Sample:   {self.hold_time + self.release_time + self.pause_time:.2f}s")
-            print()
-            
-            # User prompt
-            print("-" * 70)
-            print()
-            print(f"  {self.interactive_prompt}")
-            print()
-            print("-" * 70)
-            print()
+            # Build pause message
+            total_samples = self.interactive_notes_sampled * self.velocity_layers * self.roundrobin_layers
+            message = f"{self.interactive_prompt} (Press Enter to continue"
+            if self.interactive_continue > 0:
+                message += f" or wait {self.interactive_continue:.0f}s)"
+            else:
+                message += ")"
             
             # Handle continue mode
             if self.interactive_continue > 0:
-                # Auto-resume after timeout with progress bar
-                print(f"  Auto-resume in {self.interactive_continue:.0f} seconds (or press Enter to continue now)")
-                print()
-                
-                import sys
-                
-                # Platform-specific input handling with progress bar
-                if sys.platform == 'win32':
-                    import msvcrt
-                    start_time = time.time()
-                    bar_width = 50
-                    
-                    while True:
-                        elapsed = time.time() - start_time
-                        remaining = self.interactive_continue - elapsed
-                        
-                        if remaining <= 0:
-                            break
-                        
-                        # Check for keypress
-                        if msvcrt.kbhit():
-                            msvcrt.getch()  # Clear the keypress
-                            print(SHOW_CURSOR, end='', flush=True)
-                            print("\n  User pressed key - resuming...\n")
-                            print("=" * 70)
-                            return
-                        
-                        # Draw progress bar
-                        progress = elapsed / self.interactive_continue
-                        filled = int(bar_width * progress)
-                        bar = '█' * filled + '░' * (bar_width - filled)
-                        print(f"\r  [{bar}] {remaining:.1f}s  ", end='', flush=True)
-                        
-                        time.sleep(0.1)
-                    
-                    print(SHOW_CURSOR, end='', flush=True)
-                    print("\n\n  Auto-resuming...\n")
-                    print("=" * 70)
-                    
-                else:
-                    # Unix/Linux/Mac
-                    import sys
-                    import termios
-                    import tty
-                    import select
-                    
-                    old_settings = termios.tcgetattr(sys.stdin)
-                    try:
-                        tty.setcbreak(sys.stdin.fileno())
+                # Auto-resume after timeout with progress bar on main display
+                if display:
+                    # Platform-specific input handling with progress bar
+                    if sys.platform == 'win32':
+                        import msvcrt
                         start_time = time.time()
-                        bar_width = 50
+                        last_update = 0
                         
                         while True:
                             elapsed = time.time() - start_time
@@ -488,35 +514,78 @@ class AutoSampler:
                                 break
                             
                             # Check for keypress
-                            if select.select([sys.stdin], [], [], 0)[0]:
-                                sys.stdin.read(1)  # Clear the keypress
-                                print(SHOW_CURSOR, end='', flush=True)
-                                print("\n  User pressed key - resuming...\n")
-                                print("=" * 70)
+                            if msvcrt.kbhit():
+                                msvcrt.getch()  # Clear the keypress
+                                display.set_pause_state(False)
+                                logging.info("User pressed key - resuming...")
                                 return
                             
-                            # Draw progress bar
-                            progress = elapsed / self.interactive_continue
-                            filled = int(bar_width * progress)
-                            bar = '█' * filled + '░' * (bar_width - filled)
-                            print(f"\r  [{bar}] {remaining:.1f}s  ", end='', flush=True)
+                            # Update display only every 0.5 seconds to reduce flicker
+                            if elapsed - last_update >= 0.5:
+                                progress = elapsed / self.interactive_continue
+                                display.set_pause_state(True, message, progress, remaining)
+                                last_update = elapsed
                             
                             time.sleep(0.1)
                         
-                        print(SHOW_CURSOR, end='', flush=True)
-                        print("\n\n  Auto-resuming...\n")
-                        print("=" * 70)
+                        display.set_pause_state(False)
+                        logging.info("Auto-resuming after timeout")
                         
-                    finally:
-                        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+                    else:
+                        # Unix/Linux/Mac
+                        import termios
+                        import tty
+                        import select
+                        
+                        old_settings = termios.tcgetattr(sys.stdin)
+                        try:
+                            tty.setcbreak(sys.stdin.fileno())
+                            start_time = time.time()
+                            last_update = 0
+                            
+                            while True:
+                                elapsed = time.time() - start_time
+                                remaining = self.interactive_continue - elapsed
+                                
+                                if remaining <= 0:
+                                    break
+                                
+                                # Check for keypress
+                                if select.select([sys.stdin], [], [], 0)[0]:
+                                    sys.stdin.read(1)  # Clear the keypress
+                                    display.set_pause_state(False)
+                                    logging.info("User pressed key - resuming...")
+                                    return
+                                
+                                # Update display only every 0.5 seconds to reduce flicker
+                                if elapsed - last_update >= 0.5:
+                                    progress = elapsed / self.interactive_continue
+                                    display.set_pause_state(True, message, progress, remaining)
+                                    last_update = elapsed
+                                
+                                time.sleep(0.1)
+                            
+                            display.set_pause_state(False)
+                            logging.info("Auto-resuming after timeout")
+                            
+                        finally:
+                            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+                else:
+                    # Fallback without display (shouldn't happen)
+                    logging.warning("Interactive pause without display - using simple wait")
+                    time.sleep(self.interactive_continue)
             else:
-                # Wait for keypress
-                print("  Press Enter to continue...")
-                print()
-                print(SHOW_CURSOR, end='', flush=True)
-                input()
-                print("\n  Resuming sampling...\n")
-                print("=" * 70)
+                # Wait for keypress - show on main display
+                if display:
+                    display.set_pause_state(True, message, 0.0, 0.0)
+                    input()  # Wait for Enter
+                    display.set_pause_state(False)
+                    logging.info("User pressed Enter - resuming...")
+                else:
+                    # Fallback without display
+                    print(f"\n{message}")
+                    input()
+                    print("Resuming sampling...")
     
     def send_midi_note(self, note: int, velocity: int, channel: int = 0, duration: float = None) -> None:
         """
@@ -1006,14 +1075,15 @@ class AutoSampler:
         all_notes = list(range(start_note, end_note + 1, interval))
         total_notes = len(all_notes)
         
-        # Initialize display
+        # Initialize display with log handler
         display = SamplingDisplay(
             total_notes=total_notes,
             velocity_layers=self.velocity_layers,
             roundrobin_layers=self.roundrobin_layers,
             hold_time=self.hold_time,
             release_time=self.release_time,
-            pause_time=self.pause_time
+            pause_time=self.pause_time,
+            log_handler=log_buffer_handler
         )
         
         # Start display
@@ -1072,8 +1142,13 @@ class AutoSampler:
                         else:
                             note_channel = channel
                         
+                        # Get note name for display
+                        note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+                        octave = (note // 12) - 1
+                        note_name = note_names[note % 12] + str(octave)
+                        
                         # Update display for sampling
-                        midi_msgs.append(f"Note ON: Note={note}, Vel={velocity}, Ch={note_channel}, RR={rr_layer}")
+                        midi_msgs.append(f"Note ON: {note_name} (MIDI {note}), Vel={velocity} (Layer {vel_layer+1}/{self.velocity_layers}), RR={rr_layer+1}/{self.roundrobin_layers}, Ch={note_channel}")
                         display.update(note, velocity, rr_layer, vel_layer, 
                                      f"Recording ({self.hold_time + self.release_time:.1f}s)", midi_msgs)
                         
@@ -1118,10 +1193,7 @@ class AutoSampler:
                         # Only check after completing all layers for this note
                         if rr_layer == self.roundrobin_layers - 1 and vel_layer == self.velocity_layers - 1:
                             display.increment_note()
-                            self.check_interactive_pause()
-                            # Restart display after interactive pause
-                            if self.interactive_every > 0 and self.interactive_notes_sampled % self.interactive_every == 0:
-                                display.start()
+                            self.check_interactive_pause(display)
                         
                         # Pause between samples
                         if self.pause_time > 0:
@@ -1131,16 +1203,6 @@ class AutoSampler:
         finally:
             # Stop display
             display.stop()
-        
-        # Apply patch normalization if enabled
-        if self.patch_normalize and self.recorded_samples:
-            self.apply_patch_normalization()
-                    if rr_layer == self.roundrobin_layers - 1 and vel_layer == self.velocity_layers - 1:
-                        self.check_interactive_pause()
-                    
-                    # Pause between samples
-                    if self.pause_time > 0:
-                        time.sleep(self.pause_time)
         
         # Apply patch normalization if enabled
         if self.patch_normalize and self.recorded_samples:

@@ -1,0 +1,35 @@
+# Test NRPN and SysEx Messages Display
+# Simple test to show NRPN and SysEx in the MIDI message display
+
+sampling:
+  hold_time: 0.5
+  release_time: 0.3
+  pause_time: 0.1
+  multisample_name: "NRPN_SysEx_Test"
+  velocity_layers: 1
+  roundrobin_layers: 3
+  output_format: "sfz"
+  output_folder: "./output"
+  test_mode: true
+
+sampling_midi:
+  note_range: {start: 60, end: 62, interval: 1}  # C4, C#4, D4
+  midi_channels: [0]
+  
+  # Global SysEx message sent at start
+  sysex_messages:
+    - "43 10 7F 1C 00 00 00 01"  # Example SysEx (Yamaha-style)
+  
+  # Different NRPN per round-robin layer
+  roundrobin_midi_control:
+    - roundrobin_layer: 0
+      nrpn_messages: {45: 0, 100: 4000}     # NRPN 45=0, NRPN 100=4000
+    
+    - roundrobin_layer: 1
+      nrpn_messages: {45: 8000, 100: 8000}  # NRPN 45=8000, NRPN 100=8000
+      sysex_messages:
+        - "43 10 7F 1D 00 00 00 7F"  # Additional SysEx for this layer
+    
+    - roundrobin_layer: 2
+      nrpn_messages: {45: 16383, 100: 16383}  # Max NRPN values
+      cc_messages: {7: 100}                    # Mix with CC messages
