@@ -1,0 +1,390 @@
+# AutosamplerT Complete YAML Schema
+# This file demonstrates ALL possible configuration options
+# Use this as a reference when creating your own scripts
+
+# ==============================================================================
+# METADATA (Optional)
+# ==============================================================================
+name: "Complete Schema Example"
+description: "Demonstrates all possible YAML configuration options"
+
+# ==============================================================================
+# MULTISAMPLE NAME (Required for script files)
+# ==============================================================================
+multisample_name: "MySynth_Complete"
+
+# ==============================================================================
+# AUDIO INTERFACE (Optional - merges with config file)
+# ==============================================================================
+audio_interface:
+  # Device indices (use --setup audio to find these)
+  input_device_idx: 1          # Audio input device index
+  output_device_idx: 4         # Audio output device index (for test tones)
+  
+  # Sample rate (44100, 48000, 96000, etc.)
+  sample_rate: 48000
+  
+  # Bit depth (16, 24, or 32)
+  sample_width: 24
+  
+  # Mono or stereo recording
+  mono_stereo: "stereo"        # Options: "mono" or "stereo"
+  
+  # ASIO-specific settings (Windows only)
+  asio_channel_left: 0         # Left channel for ASIO input
+  asio_channel_right: 1        # Right channel for ASIO input
+
+# ==============================================================================
+# MIDI INTERFACE (Optional - merges with config file)
+# ==============================================================================
+midi_interface:
+  # MIDI port names (exact or partial match)
+  input_port: "OP-1 0"         # MIDI input port name
+  output_port: "OP-1 1"        # MIDI output port name
+  
+  # Basic MIDI messages (sent once at startup)
+  program_change: 10           # Load program/patch (0-127)
+  
+  # CC messages (7-bit Control Change, 0-127)
+  cc_messages:
+    7: 127                     # Volume: maximum
+    10: 64                     # Pan: center
+    74: 80                     # Filter cutoff: half open
+    71: 50                     # Resonance: medium
+    11: 100                    # Expression
+  
+  # CC14 messages (14-bit Control Change, 0-16383)
+  cc14_messages:
+    1: 8192                    # Modulation wheel (center)
+    11: 12000                  # Expression (high-res)
+  
+  # NRPN messages (Non-Registered Parameter Number)
+  nrpn_messages:
+    45: 164                    # Parameter 45 = value 164
+    100: 8192                  # Parameter 100 = value 8192
+  
+  # SysEx messages (hex string, no F0/F7)
+  sysex_messages:
+    - "43 10 7F 1C 00"         # Yamaha SysEx example
+    - "41 10 00 20 12"         # Roland SysEx example
+
+# ==============================================================================
+# SAMPLING MIDI (Per-layer MIDI control)
+# ==============================================================================
+sampling_midi:
+  # Delay after MIDI message before note-on (seconds)
+  midi_message_delay: 0.1
+  
+  # ---------------------------------------------------------------------------
+  # VELOCITY LAYERS - Different MIDI per velocity layer
+  # ---------------------------------------------------------------------------
+  velocity_layers:
+    - velocity: 40             # Velocity value for this layer (1-127)
+      cc:                      # CC messages for this layer
+        - {controller: 74, value: 20}    # Filter: mostly closed
+        - {controller: 71, value: 30}    # Resonance: low
+        - {controller: 11, value: 40}    # Expression: soft
+      cc14:                    # CC14 messages (14-bit)
+        - {controller: 1, msb: 32, lsb: 0}  # Mod wheel (low)
+      nrpn:                    # NRPN messages
+        - {parameter: 45, value: 50}
+      program_change: 0        # Load program for this layer
+      sysex:                   # SysEx messages (structured format)
+        - header: "43 10 7F"   # Manufacturer/device header
+          controller: "10"     # Parameter (hex)
+          value: 0             # Value (0-127)
+    
+    - velocity: 80             # Medium velocity layer (mf)
+      cc:
+        - {controller: 74, value: 80}
+        - {controller: 71, value: 50}
+        - {controller: 11, value: 80}
+      cc14:
+        - {controller: 1, msb: 64, lsb: 0}
+      nrpn:
+        - {parameter: 45, value: 100}
+      program_change: 1
+      sysex:
+        - controller: "10"     # Header reused from previous layer
+          value: 64
+    
+    - velocity: 120            # Loud velocity layer (fff)
+      cc:
+        - {controller: 74, value: 127}
+        - {controller: 71, value: 90}
+        - {controller: 11, value: 127}
+      cc14:
+        - {controller: 1, msb: 127, lsb: 127}
+      nrpn:
+        - {parameter: 45, value: 150}
+      program_change: 2
+      sysex:
+        - raw: "43 10 7F 10 7F"  # Raw SysEx format
+  
+  # ---------------------------------------------------------------------------
+  # ROUND-ROBIN LAYERS - Different MIDI per round-robin layer
+  # ---------------------------------------------------------------------------
+  roundrobin_layers:
+    - layer: 1                 # Round-robin layer number (1-based)
+      cc:
+        - {controller: 1, value: 10}     # Mod wheel: low
+      cc14:
+        - {controller: 11, msb: 20, lsb: 0}
+      nrpn:
+        - {parameter: 100, value: 0}
+      program_change: 10
+      midi_channel: 1          # MIDI channel for this layer (1-16)
+      sysex:
+        - header: "43 10 7F"
+          controller: "20"
+          value: 0
+    
+    - layer: 2
+      cc:
+        - {controller: 1, value: 50}
+      cc14:
+        - {controller: 11, msb: 60, lsb: 0}
+      nrpn:
+        - {parameter: 100, value: 64}
+      program_change: 11
+      midi_channel: 1
+      sysex:
+        - controller: "20"
+          value: 64
+    
+    - layer: 3
+      cc:
+        - {controller: 1, value: 90}
+      cc14:
+        - {controller: 11, msb: 100, lsb: 0}
+      nrpn:
+        - {parameter: 100, value: 127}
+      program_change: 12
+      midi_channel: 1
+      sysex:
+        - controller: "20"
+          value: 127
+    
+    - layer: 4
+      cc:
+        - {controller: 1, value: 127}
+      cc14:
+        - {controller: 11, msb: 127, lsb: 127}
+      nrpn:
+        - {parameter: 100, value: 200}
+      program_change: 13
+      midi_channel: 1
+      sysex:
+        - controller: "20"
+          value: 127
+  
+  # ---------------------------------------------------------------------------
+  # PATCH ITERATION - Sample multiple patches automatically
+  # ---------------------------------------------------------------------------
+  patch_iteration:
+    enabled: true              # Enable patch iteration
+    program_start: 0           # First program to sample (0-127)
+    program_end: 19            # Last program to sample (0-127, inclusive)
+    auto_naming: true          # Auto-generate names (Patch_000, Patch_001, etc.)
+    name_template: "Patch"     # Name prefix for auto-naming
+    midi_channel: 1            # MIDI channel for program changes (1-16)
+
+# ==============================================================================
+# SAMPLING CONFIGURATION
+# ==============================================================================
+sampling:
+  # ---------------------------------------------------------------------------
+  # NOTE RANGE - Which notes to sample
+  # ---------------------------------------------------------------------------
+  # Using MIDI note numbers (0-127)
+  startNote: 36                # C2 (MIDI note 36)
+  endNote: 96                  # C7 (MIDI note 96)
+  noteInterval: 4              # Sample every 4 semitones (minor third)
+  
+  # Alternative: Using note names (C4, A#3, etc.)
+  # startNoteName: "C2"
+  # endNoteName: "C7"
+  # noteIntervalName: 4
+  
+  # ---------------------------------------------------------------------------
+  # VELOCITY LAYERS
+  # ---------------------------------------------------------------------------
+  # Option 1: List of velocity values (if NOT using sampling_midi.velocity_layers)
+  velocities: [40, 80, 120]    # ppp, mf, fff
+  
+  # Option 2: Number of velocity layers (auto-calculated)
+  # velocity_layers: 3         # Creates 3 evenly-spaced layers
+  
+  # ---------------------------------------------------------------------------
+  # ROUND-ROBIN LAYERS
+  # ---------------------------------------------------------------------------
+  rr_layers: 4                 # Number of round-robin variations per note
+  
+  # ---------------------------------------------------------------------------
+  # RECORDING TIMING
+  # ---------------------------------------------------------------------------
+  hold: 2.0                    # Hold note for X seconds (note-on duration)
+  release: 2.0                 # Record release tail for X seconds (after note-off)
+  pause: 0.5                   # Pause between samples (seconds)
+  
+  # ---------------------------------------------------------------------------
+  # MIDI BEHAVIOR
+  # ---------------------------------------------------------------------------
+  note_on_velocity: 100        # Fixed velocity (if not using velocity layers)
+  midi_channel: 1              # MIDI channel to send notes on (1-16)
+  note_duration: 2.0           # Legacy: note duration in seconds
+  
+  # ---------------------------------------------------------------------------
+  # ADVANCED OPTIONS
+  # ---------------------------------------------------------------------------
+  test_tone: false             # Generate test tone instead of recording
+  test_tone_frequency: 440     # Test tone frequency in Hz
+
+# ==============================================================================
+# POST-PROCESSING OPTIONS
+# ==============================================================================
+postprocessing:
+  # ---------------------------------------------------------------------------
+  # NORMALIZATION
+  # ---------------------------------------------------------------------------
+  normalize: true              # Normalize samples to maximum level
+  normalize_level: -1.0        # Target level in dB (-1.0 = 0dBFS minus 1dB headroom)
+  
+  # ---------------------------------------------------------------------------
+  # SILENCE TRIMMING
+  # ---------------------------------------------------------------------------
+  trim_silence: true           # Remove silence from start/end
+  silence_threshold: -60       # Silence threshold in dB
+  fade_in: 10                  # Fade-in duration in milliseconds
+  fade_out: 10                 # Fade-out duration in milliseconds
+  
+  # ---------------------------------------------------------------------------
+  # AUTO-LOOP
+  # ---------------------------------------------------------------------------
+  auto_loop: true              # Automatically detect and set loop points
+  
+  # Loop detection parameters
+  loop_min_duration: "50%"     # Minimum loop length (percentage or seconds)
+  loop_crossfade: 50           # Crossfade duration in milliseconds
+  
+  # Advanced loop settings
+  attack_threshold: 0.9        # Attack detection threshold (0.0-1.0)
+  sustain_threshold: 0.8       # Sustain detection threshold (0.0-1.0)
+  stability_duration: 0.1      # Minimum stable duration in seconds
+  
+  # Loop validation
+  loop_min_quality: 0.5        # Minimum loop quality score (0.0-1.0)
+  
+  # ---------------------------------------------------------------------------
+  # METADATA
+  # ---------------------------------------------------------------------------
+  add_metadata: true           # Add SMPL chunk with MIDI note and loop points
+
+# ==============================================================================
+# EXPORT FORMATS
+# ==============================================================================
+export:
+  # ---------------------------------------------------------------------------
+  # OUTPUT FORMAT
+  # ---------------------------------------------------------------------------
+  output_format: "sfz"         # Primary output format: "sfz" or "none"
+  
+  # ---------------------------------------------------------------------------
+  # ADDITIONAL EXPORT FORMATS
+  # ---------------------------------------------------------------------------
+  formats:
+    - qpat                     # Waldorf Quantum/Iridium QPAT format
+    # - ableton                # Ableton Live (future)
+    # - exs                    # Logic Pro EXS24 (future)
+    # - sxt                    # Native Instruments Kontakt (future)
+  
+  # ---------------------------------------------------------------------------
+  # QPAT EXPORT SETTINGS
+  # ---------------------------------------------------------------------------
+  qpat:
+    location: 4                # Sample location: 2=SD, 3=internal, 4=USB
+    optimize_audio: true       # Convert to 44.1kHz 32-bit float
+    max_groups: 3              # Maximum velocity/RR groups (1-3)
+
+# ==============================================================================
+# OUTPUT SETTINGS
+# ==============================================================================
+output:
+  # Output folder structure
+  base_folder: "output"        # Base output folder (default: "output")
+  create_subfolders: true      # Create subfolder per multisample
+  
+  # File naming
+  include_velocity: true       # Include velocity in filename (e.g., _v127)
+  include_roundrobin: true     # Include RR index in filename (e.g., _rr1)
+  
+  # Overwrite behavior
+  overwrite_existing: false    # Allow overwriting existing files
+
+# ==============================================================================
+# TEST MODE
+# ==============================================================================
+test_mode:
+  enabled: false               # Enable test mode (no actual recording)
+  show_midi: true              # Show MIDI messages in test mode
+  show_timing: true            # Show timing information in test mode
+
+# ==============================================================================
+# NOTES AND EXAMPLES
+# ==============================================================================
+# 
+# VELOCITY LAYER OPTIONS:
+# -----------------------
+# Option 1: List specific velocities
+#   velocities: [40, 80, 120]
+# 
+# Option 2: Auto-calculate N layers
+#   velocity_layers: 3         # Creates velocities [42, 84, 127]
+# 
+# Option 3: Use sampling_midi.velocity_layers for per-layer MIDI control
+#   (See sampling_midi section above)
+# 
+# NOTE SPECIFICATION:
+# -------------------
+# MIDI note numbers: 0-127 (Middle C = 60)
+#   startNote: 60
+#   endNote: 72
+# 
+# Note names: C4 is middle C (C-1 to G9)
+#   startNoteName: "C4"
+#   endNoteName: "C5"
+# 
+# MIDI CHANNEL:
+# -------------
+# Channels are 1-16 (displayed to user)
+# Internally stored as 0-15
+# 
+# SYSEX FORMATS:
+# --------------
+# Structured (recommended):
+#   sysex:
+#     - header: "43 10 7F"
+#       controller: "10"
+#       value: 64
+# 
+# Raw (direct hex):
+#   sysex:
+#     - raw: "43 10 7F 10 40"
+# 
+# CC14 FORMAT:
+# ------------
+# 14-bit CC uses MSB and LSB:
+#   cc14:
+#     - {controller: 1, msb: 64, lsb: 0}
+# 
+# Range: 0-16383 (combined MSB/LSB)
+# 
+# NRPN FORMAT:
+# ------------
+# Non-Registered Parameter Number:
+#   nrpn:
+#     - {parameter: 45, value: 164}
+# 
+# Sends: CC99 (NRPN MSB), CC98 (NRPN LSB), CC6 (Data MSB), CC38 (Data LSB)
+# 
+# ==============================================================================

@@ -2,6 +2,8 @@
 
 Guide to YAML-based scripting for automated sampling workflows in AutosamplerT.
 
+**Complete YAML Schema Reference:** See [`conf/schema_complete.yaml`](../conf/schema_complete.yaml) for a comprehensive example showing all possible configuration options.
+
 ## Overview
 
 AutosamplerT uses YAML scripts to define sampling sessions. Scripts allow you to:
@@ -34,6 +36,22 @@ AutosamplerT uses YAML scripts to define sampling sessions. Scripts allow you to
 - Note ranges and layers
 - Session-specific
 - Executed with `--script`
+
+## Complete Schema Reference
+
+For a comprehensive example showing **all possible YAML options**, see:
+- **[`conf/schema_complete.yaml`](../conf/schema_complete.yaml)** - Complete YAML schema with all configuration options
+
+This schema file includes:
+- All audio/MIDI interface settings
+- All sampling_midi options (velocity layers, round-robin layers, patch iteration)
+- All sampling configuration options
+- All post-processing parameters (normalize, trim, auto-loop)
+- All export formats and settings
+- Detailed comments explaining each option
+- Examples for CC, CC14, NRPN, and SysEx messages
+
+Use it as a **copy-paste reference** when creating your own scripts.
 
 ## Script Structure
 
