@@ -255,7 +255,7 @@ class AutoLoopTester:
             
             # Check result
             if result.returncode != 0:
-                self.log(f"\n❌ FAILED (exit code {result.returncode})")
+                self.log(f"\nFAILED (exit code {result.returncode})")
                 self.log(f"stderr: {result.stderr}")
                 return {
                     "name": test_name,
@@ -278,7 +278,7 @@ class AutoLoopTester:
                     success = False
             
             if success:
-                self.log(f"\n✅ PASSED ({elapsed:.2f}s)")
+                self.log(f"\n PASSED ({elapsed:.2f}s)")
                 return {
                     "name": test_name,
                     "status": "PASS",
@@ -295,14 +295,14 @@ class AutoLoopTester:
                 }
                 
         except subprocess.TimeoutExpired:
-            self.log(f"\n❌ TIMEOUT (>30s)")
+            self.log(f"\nTIMEOUT (>30s)")
             return {
                 "name": test_name,
                 "status": "TIMEOUT",
                 "message": "Exceeded 30s timeout"
             }
         except Exception as e:
-            self.log(f"\n❌ ERROR: {e}")
+            self.log(f"\nERROR: {e}")
             return {
                 "name": test_name,
                 "status": "ERROR",
@@ -312,7 +312,7 @@ class AutoLoopTester:
     def run_test_group(self, group_name: str):
         """Run all tests in a group."""
         if group_name not in TESTS:
-            self.log(f"\n❌ Unknown test group: {group_name}")
+            self.log(f"\nUnknown test group: {group_name}")
             return
         
         self.log(f"\n{'='*70}")
@@ -339,11 +339,11 @@ class AutoLoopTester:
         timeouts = sum(1 for r in self.results if r["status"] == "TIMEOUT")
         
         self.log(f"\nTotal tests: {total}")
-        self.log(f"  ✅ Passed:   {passed}")
-        self.log(f"  ❌ Failed:   {failed}")
+        self.log(f"   Passed:   {passed}")
+        self.log(f"  Failed:   {failed}")
         self.log(f"  ⚠️  Warned:   {warned}")
         self.log(f"  ⏭️  Skipped:  {skipped}")
-        self.log(f"  ❌ Errors:   {errors}")
+        self.log(f"  Errors:   {errors}")
         self.log(f"  ⏱️  Timeouts: {timeouts}")
         
         if failed > 0 or errors > 0 or timeouts > 0:
@@ -422,7 +422,7 @@ def main():
     
     # Setup
     if not tester.setup():
-        print("\n❌ Setup failed - no test samples available")
+        print("\nSetup failed - no test samples available")
         print("Run: python test_autoloop.py --create-samples")
         return 1
     

@@ -303,10 +303,15 @@ class AutoSampler:
                 logging.info(f"Recording completed: {len(recording)} frames")
             except sd.CallbackAbort as e:
                 logging.error(f"Recording aborted: {e}")
+                sd.stop()  # Stop the stream on abort
                 return None
             except Exception as e:
                 logging.error(f"Recording wait failed: {e}")
+                sd.stop()  # Stop the stream on error
                 return None
+            finally:
+                # Always stop the stream to ensure clean closure and prevent clicks
+                sd.stop()
             
             # If mono output is requested, extract the specified channel
             if self.mono_stereo == 'mono' and record_channels == 2:
@@ -576,17 +581,13 @@ class AutoSampler:
         
         logging.info(f"Processing audio: {len(audio)} frames, {audio.shape}")
         
-        # Process audio: silence detection and trimming
-        logging.debug("Detecting silence...")
-        start, end = self.detect_silence(audio)
-        logging.debug(f"Silence detection complete: trim from {start} to {end}")
+        # Note: Silence trimming removed from recording - now only in postprocessing
+        # This ensures we capture the full recording duration and any clicks at the end
+        # are visible for debugging
         
-        audio_trimmed = audio[start:end]
-        logging.debug(f"Audio trimmed: {len(audio_trimmed)} frames")
-        
-        # Normalize individual sample
+        # Normalize individual sample (optional)
         logging.debug("Normalizing audio...")
-        audio_processed = self.normalize_audio(audio_trimmed)
+        audio_processed = self.normalize_audio(audio)
         logging.info(f"Audio processing complete: {len(audio_processed)} frames")
         
         return audio_processed
@@ -1110,7 +1111,9 @@ class AutoSampler:
             if not self.setup_midi():
                 logging.warning("MIDI setup failed - continuing without MIDI")
             
-            # Parse note range
+            # Parse note range - support both formats:
+            # 1. midi_interface.note_range dict with start/end/interval keys
+            # 2. sampling.note_range_start/end/interval individual keys
             note_range = self.midi_config.get('note_range', {})
             if isinstance(note_range, str):
                 try:
@@ -1118,9 +1121,10 @@ class AutoSampler:
                 except:
                     note_range = {}
             
-            start_note = note_range.get('start', 36)  # C2
-            end_note = note_range.get('end', 96)      # C7
-            interval = note_range.get('interval', 1)  # Chromatic
+            # Try dict format first, then fall back to individual keys in sampling config
+            start_note = note_range.get('start') or self.sampling_config.get('note_range_start', 36)
+            end_note = note_range.get('end') or self.sampling_config.get('note_range_end', 96)
+            interval = note_range.get('interval') or self.sampling_config.get('note_range_interval', 1)
             
             # Get MIDI channel
             channels = self.midi_config.get('midi_channels', [0])

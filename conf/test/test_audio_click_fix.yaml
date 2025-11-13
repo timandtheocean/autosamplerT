@@ -1,0 +1,63 @@
+# Test Script: Audio Click Fix Verification
+#
+# Purpose: Verify the audio click bug fix (sd.stop() in finally block)
+#          and test long-duration recordings
+#
+# Test Parameters (as requested):
+# - 2 samples per octave (interval = 6 semitones)
+# - Hold time: 10 seconds
+# - Pause time: 3 seconds  
+# - Release time: 2 seconds
+# - Total recording per note: 12 seconds (10s + 2s)
+#
+# Expected Behavior:
+# - No hard click at end of recordings (sd.stop() should close stream cleanly)
+# - Recording should capture full 10s hold + 2s release
+# - Waveform should show clean fade at end (no discontinuity)
+# - Long recordings (10s+) should not hang
+# - 3 second pause between samples should be respected
+#
+# Test Range: C4 to C5 (12 semitones = 3 notes with interval 6: C4, F#4, C5)
+
+name: "Audio Click Fix Test"
+description: "Test long recordings with 10s hold time to verify click fix and release capture"
+
+# Audio configuration
+audio:
+  samplerate: 44100  # Match your interface
+  bitdepth: 24
+  mono_stereo: stereo
+
+# MIDI interface (adjust to your device)
+midi_interface:
+  output_port_name: "Prophet 6"  # Change to your MIDI device
+  channel: 0  # MIDI channel 1 (0-indexed)
+
+# Sampling configuration
+sampling:
+  note_range_start: 60  # C4
+  note_range_end: 72    # C5
+  note_range_interval: 6  # 2 samples per octave (C4, F#4, C5)
+  velocity_layers: 1     # Single velocity for quick test
+  roundrobin_layers: 1   # No round-robin
+  
+  # Long durations to test fix
+  hold_time: 10.0        # 10 seconds - test long recordings
+  release_time: 2.0      # 2 seconds - capture release tail
+  pause_time: 3.0        # 3 seconds between samples
+
+# Post-processing
+postprocessing:
+  trim_silence: true     # Trim silence from start/end
+  silence_threshold: -60 # dB threshold
+  auto_loop: false       # No looping for this test
+  normalize_db: -1       # Normalize to -1 dB
+
+# Export formats
+export:
+  formats: []  # No export needed for audio test
+
+# Output
+output:
+  folder: "output/test_audio_click"
+  multisample_name: "audio_click_test"

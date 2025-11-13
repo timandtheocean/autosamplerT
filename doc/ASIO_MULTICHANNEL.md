@@ -233,12 +233,12 @@ python test_asio_channel_selection.py
 ```
 
 Tests all combinations:
-- ✅ Ch A (0-1) Stereo
-- ✅ Ch B (2-3) Stereo
-- ✅ Ch A Left (0) Mono
-- ✅ Ch A Right (1) Mono
-- ✅ Ch B Left (2) Mono
-- ✅ Ch B Right (3) Mono
+-  Ch A (0-1) Stereo
+-  Ch B (2-3) Stereo
+-  Ch A Left (0) Mono
+-  Ch A Right (1) Mono
+-  Ch B Left (2) Mono
+-  Ch B Right (3) Mono
 
 ### Test Mode
 
@@ -327,10 +327,10 @@ INFO: ASIO: Selecting channel 2 (mono)
 | Feature | ASIO | WASAPI | MME/DirectSound |
 |---------|------|--------|-----------------|
 | **Channel Selection** | Direct (AsioSettings) | Post-recording extraction | Post-recording extraction |
-| **Efficiency** | ✅ Records only requested channels | ⚠️ Records all, extracts | ⚠️ Records all, extracts |
-| **Latency** | ✅ Lowest (~5-10ms) | ✅ Low (~10-20ms) | ⚠️ Higher (~20-50ms) |
-| **Multi-channel** | ✅ Single 4/6/8-ch device | ⚠️ Split into 2-ch devices | ⚠️ Split into 2-ch devices |
-| **Professional Use** | ✅ Industry standard | ✅ Good | ⚠️ Acceptable |
+| **Efficiency** |  Records only requested channels | ⚠️ Records all, extracts | ⚠️ Records all, extracts |
+| **Latency** |  Lowest (~5-10ms) |  Low (~10-20ms) | ⚠️ Higher (~20-50ms) |
+| **Multi-channel** |  Single 4/6/8-ch device | ⚠️ Split into 2-ch devices | ⚠️ Split into 2-ch devices |
+| **Professional Use** |  Industry standard |  Good | ⚠️ Acceptable |
 | **Recommendation** | **Best for multi-channel** | Good alternative | Last resort |
 
 ## Related Documentation

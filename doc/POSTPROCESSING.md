@@ -12,7 +12,7 @@ AutosamplerT performs automatic post-processing on recorded samples to improve q
 
 ## What It's Used For
 
-- **File size reduction**: Remove unnecessary silence
+- **File size reduction**: Remove unnecessary silence (via trimming)
 - **Consistent levels**: Normalize volume across patches
 - **Better loops**: Clean start/end points
 - **Professional quality**: Optimized samples for samplers
@@ -20,16 +20,32 @@ AutosamplerT performs automatic post-processing on recorded samples to improve q
 
 ## Silence Detection and Trimming
 
+[NOTE] As of v3.0, silence trimming is **only performed during postprocessing**, not during recording. This ensures complete capture of the full hold + release duration for debugging and quality control.
+
 ### How It Works
 
-AutosamplerT automatically detects and removes silence from the beginning and end of each recorded sample.
+Silence trimming detects and removes silence from the beginning and end of each recorded sample.
 
 **Process:**
 1. **Scan from start**: Find first sample above threshold
 2. **Scan from end**: Find last sample above threshold
-3. **Add safety margin**: Keep small buffer before attack
+3. **Add safety margin**: Keep small buffer before attack (10ms) and after release (100ms)
 4. **Trim audio**: Remove silence outside detected range
 5. **Save trimmed file**: Overwrite with optimized version
+
+### Usage
+
+**Postprocessing existing samples:**
+```bash
+python autosamplerT.py --process MySynth --trim_silence
+```
+
+**YAML script:**
+```yaml
+postprocessing:
+  trim_silence: true
+  silence_threshold: -60  # dB threshold (optional)
+```
 
 ### Benefits
 
@@ -41,28 +57,28 @@ AutosamplerT automatically detects and removes silence from the beginning and en
 
 ### Threshold Configuration
 
-**Current threshold:**
+**Default threshold:**
 ```python
-# src/sampler.py
-silence_threshold = 0.001  # ~-60dB
+silence_threshold = 0.001  # ~-60dB below full scale
 ```
 
 **Interpretation:**
 - Any sample with absolute amplitude < 0.001 is considered silence
-- -60dB below full scale
 - Catches quiet noise floors while preserving subtle releases
+- Can be adjusted in postprocessing scripts
 
-### Safety Margin
+### Safety Margins
 
-A small buffer is preserved before the attack:
+Buffers preserved around the audio:
 
 ```python
-# src/sampler.py
-pre_attack_samples = 100  # ~2ms at 48kHz
+pre_attack = 10ms    # Before first sound (prevents cutting transients)
+post_release = 100ms # After last sound (preserves natural decay)
 ```
 
 **Purpose:**
 - Ensure no attack transient is cut
+- Preserve natural release characteristics
 - Preserve any pre-attack artifacts
 - Account for detection threshold
 

@@ -60,7 +60,7 @@ python test_autoloop.py --quick
 ### 1. ASIO Tests (tests/asio/)
 - **Purpose**: Validate ASIO multi-channel functionality
 - **Tests**: 9 test scripts
-- **Status**: All validated ✅
+- **Status**: All validated 
 - **Key Finding**: ASIO requires main-thread recording
 
 ### 2. Auto-Loop Tests (tests/autoloop/)
@@ -78,7 +78,7 @@ python test_autoloop.py --quick
 ### 3. Integration Tests (tests/)
 - **Purpose**: End-to-end workflow validation
 - **Tests**: 17 tests across 6 groups
-- **Status**: All passing ✅
+- **Status**: All passing 
 - **Groups**: basic, velocity, roundrobin, combined, audio, metadata
 
 ## Running Tests
@@ -109,8 +109,8 @@ python test_autoloop.py --quick
 
 | Category | Tests | Status | Notes |
 |----------|-------|--------|-------|
-| Integration | 17 | ✅ Pass | All passing |
-| ASIO | 9 | ✅ Validated | Threading fix working |
+| Integration | 17 |  Pass | All passing |
+| ASIO | 9 |  Validated | Threading fix working |
 | Auto-Loop | 17 | ⏳ Pending | Requires samples |
 
 ## Creating Test Samples for Auto-Loop

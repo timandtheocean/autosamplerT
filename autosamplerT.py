@@ -165,7 +165,7 @@ def get_arg_parser() -> argparse.ArgumentParser:
     postprocessing.add_argument('--sample_normalize', action='store_true',
                                help='Normalize individual samples: each sample maximized independently (destroys relative dynamics, good for drums)')
     postprocessing.add_argument('--trim_silence', action='store_true',
-                               help='Trim silence from start/end of samples')
+                               help='Trim silence from start/end of samples (postprocessing only - not applied during recording)')
     postprocessing.add_argument('--auto_loop', action='store_true',
                                help='Find and set loop points using autocorrelation with zero-crossing detection')
     postprocessing.add_argument('--loop_min_duration', type=str, metavar='DURATION',
@@ -187,8 +187,8 @@ def get_arg_parser() -> argparse.ArgumentParser:
     postprocessing.add_argument('--export_formats', type=str, metavar='FORMATS',
                                help='Export to additional sampler formats: qpat,ableton,exs,sxt (comma-separated)')
     postprocessing.add_argument('--export_location', type=int, metavar='LOC',
-                               choices=[2, 3, 4], default=4,
-                               help='Waldorf sample location: 2=SD card, 3=internal, 4=USB (default: 4)')
+                               choices=[2, 3, 4], default=2,
+                               help='Waldorf sample location: 2=SD card (default), 3=internal, 4=USB')
     postprocessing.add_argument('--export_optimize_audio', action='store_true',
                                help='Convert samples to 44.1kHz 32-bit float for Waldorf QPAT')
 

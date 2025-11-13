@@ -55,11 +55,11 @@ def check_device_channels():
             
             # Show what you can do with this device
             if dev['max_input_channels'] == 4:
-                print(f"  ✅ Can record 4 channels simultaneously")
+                print(f"   Can record 4 channels simultaneously")
                 print(f"     - Channels 0-1: Ch A (In 1|2)")
                 print(f"     - Channels 2-3: Ch B (In 3|4)")
             elif dev['max_input_channels'] == 2:
-                print(f"  ✅ Can record 2 channels (stereo)")
+                print(f"   Can record 2 channels (stereo)")
 
 if __name__ == "__main__":
     check_device_channels()

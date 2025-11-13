@@ -305,31 +305,25 @@ sampling:
 
 **Most hardware:** Channel 1 (default)
 
-## Silence Detection
+## Audio Processing During Recording
 
-AutosamplerT automatically detects and trims silence from samples.
+AutosamplerT records the full duration specified by `hold_time + release_time` without automatic silence trimming. This ensures:
 
-### How It Works
+- Complete capture of attack and release
+- Full recording for debugging (e.g., verifying no clicks at end)
+- Accurate timing for long recordings
 
-1. **Attack detection**: Finds first sample above threshold
-2. **Release detection**: Finds last sample above threshold
-3. **Trimming**: Removes leading/trailing silence
-4. **Safety margin**: Keeps small buffer before attack
+### Optional Normalization
 
-### Threshold
+Individual sample normalization can be applied during recording:
 
-Configurable in source code (future: YAML config):
-
-```python
-# src/sampler.py
-silence_threshold = 0.001  # -60dB
+```yaml
+audio:
+  sample_normalize: true  # Normalize each sample to peak level (default: true)
+  patch_normalize: false  # Normalize entire patch together (default: false)
 ```
 
-### Benefits
-
-- **Smaller file sizes**: Removes unnecessary silence
-- **Better loop points**: Clean start/end points
-- **Faster loading**: Less data to process
+**Note:** Silence detection and trimming are now **postprocessing-only operations**. See [Post-Processing](POSTPROCESSING.md) for details.
 
 ## Pre-Sampling Summary
 

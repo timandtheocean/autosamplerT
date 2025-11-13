@@ -756,16 +756,16 @@ Located in `conf/test/`:
 
 ### Verified Features
 
-✅ CC messages transmitted with correct values  
-✅ CC messages sent before note-on  
-✅ Configurable delay working correctly  
-✅ All roundrobin layers execute in sequence  
-✅ Velocity layer CC messages working  
-✅ Program changes sent correctly  
-✅ SysEx structured format with header reuse  
-✅ SysEx raw format working  
-✅ Multiple SysEx messages per layer  
-✅ Comprehensive test suite successful (36 samples, 3×4 layers)  
+ CC messages transmitted with correct values  
+ CC messages sent before note-on  
+ Configurable delay working correctly  
+ All roundrobin layers execute in sequence  
+ Velocity layer CC messages working  
+ Program changes sent correctly  
+ SysEx structured format with header reuse  
+ SysEx raw format working  
+ Multiple SysEx messages per layer  
+ Comprehensive test suite successful (36 samples, 3×4 layers)  
 
 ### Log Output Example
 

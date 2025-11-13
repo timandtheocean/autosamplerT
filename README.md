@@ -1,288 +1,573 @@
-# AutosamplerT
+# AutosamplerT# AutosamplerT
 
-Python-based autosampler to create SFZ multisample libraries from hardware synths and instruments.
 
-A cross-platform program that samples hardware synthesizers by sending MIDI notes (and optionally CC and SysEx messages) to a hardware device, captures the audio, and creates an SFZ multisample.
 
-This is the initial commit and development just started. 
+Python-based autosampler to create SFZ multisample libraries from hardware synths and instruments.Python-based autosampler to create SFZ multisample libraries from hardware synths and instruments.
+
+
+
+A cross-platform program that samples hardware synthesizers by sending MIDI notes (and optionally MIDI messages like CC, NRPN, program changes, and SysEx) to a hardware device, captures the audio, and creates an SFZ multisample with export options for various sampler formats.A cross-platform program that samples hardware synthesizers by sending MIDI notes (and optionally midi messages like CC, nrpn, program changes and SysEx messages) to a hardware device, captures the audio, and creates an SFZ multisample.
+
+
+
+## FeaturesThis is the initial commit and development just started. 
+
 things are probably not fully working.
 
-## Features
-
 ### Audio Configuration
-- Select audio device, bit depth (16/24/32), and sample rate
-- Support for mono (left/right channel selection) and stereo inputs
-- **ASIO multi-channel support**: Select specific stereo pairs on multi-channel interfaces (Ch A, Ch B, etc.)
-- ASIO, WASAPI, MME, WDM-KS, and DirectSound audio APIs supported
-- Audio latency compensation
-- Input gain control
-- Built-in silence detection for automatic trimming
 
-### MIDI Configuration
-- MIDI input for testing and audition
+- Select audio device, bit depth (16/24/32), and sample rate## Features
+
+- Support for mono (left/right channel selection) and stereo inputs
+
+- ASIO multi-channel support: Select specific stereo pairs on multi-channel interfaces (Ch A, Ch B, etc.)### Audio Configuration
+
+- ASIO, WASAPI, MME, WDM-KS, and DirectSound audio APIs supported- Select audio device, bit depth (16/24/32), and sample rate
+
+- Audio latency compensation- Support for mono (left/right channel selection) and stereo inputs
+
+- Input gain control- **ASIO multi-channel support**: Select specific stereo pairs on multi-channel interfaces (Ch A, Ch B, etc.)
+
+- Built-in silence detection for automatic trimming- ASIO, WASAPI, MME, WDM-KS, and DirectSound audio APIs supported
+
+- Audio latency compensation
+
+### MIDI Configuration- Input gain control
+
+- MIDI input for testing and audition- Built-in silence detection for automatic trimming
+
 - MIDI output for playback during sampling
-- Support for SysEx, Program Change, and CC messages
-- Multiple MIDI channels for capturing multiple instruments
+
+- Support for CC (7-bit), CC14 (14-bit), NRPN, Program Change, and SysEx messages### MIDI Configuration
+
+- Per-layer MIDI control (velocity and round-robin layers)- MIDI input for testing and audition
+
+- Configurable message delays- MIDI output for playback during sampling
+
+- Multiple MIDI channels for capturing multiple instruments- Support for SysEx, Program Change, and CC messages
+
+- MIDI latency adjustment for sample start correction- Multiple MIDI channels for capturing multiple instruments
+
 - MIDI latency adjustment for sample start correction
 
 ### Sampling Options
-- Configurable note hold time
-- Configurable release time
-- Pause between samples
-- Note range and interval (chromatic, whole-tone, etc.)
-- Multiple velocity layers
+
+- Configurable note hold time, release time, and pause between samples### Sampling Options
+
+- Note range and interval (chromatic, whole-tone, octaves, etc.)- Configurable note hold time
+
+- Multiple velocity layers with automatic logarithmic distribution or custom split points- Configurable release time
+
+- Multiple round-robin layers- Pause between samples
+
+- Test mode for quick setup verification without recording- Note range and interval (chromatic, whole-tone, etc.)
+
+- Pre-sampling summary with sample count and timing estimates- Multiple velocity layers
+
 - Multiple round-robin layers
-- Test mode for quick setup verification
 
-### Output
+### Output & Export Formats- Test mode for quick setup verification
+
+- **SFZ format**: Native format, always created
+
+- **Waldorf QPAT**: Export to Waldorf Quantum/Iridium format (SD card, internal, or USB)### Output
+
+- **Ableton Live**: Planned- WAV file export with metadata (note, velocity, MIDI channel in RIFF chunk)
+
+- **Logic Pro EXS24**: Planned- SFZ mapping file generation with velocity layers and round-robin support
+
+- **Kontakt SXT**: Planned- Customizable sample naming
+
 - WAV file export with metadata (note, velocity, MIDI channel in RIFF chunk)
-- SFZ mapping file generation with velocity layers and round-robin support
-- Customizable sample naming
 
-### Postprocessing
+- Customizable sample naming and folder organization### Postprocessing
+
 - Patch normalize: automatically gain all samples to consistent peak level
-- Sample normalize: gain each sample to maximum volume independently
-- Silence trimming: remove silence from start/end of samples
-- DC offset removal: remove DC bias from recordings
-- Auto-loop detection: find and set loop points using autocorrelation algorithm
-  - Zero-crossing detection for smooth, click-free loop points
-  - Automatic loop detection or manual start/end time specification
-  - Configurable minimum loop duration (percentage or seconds: `55%` or `8.5`)
-  - Loop points stored in WAV RIFF 'smpl' chunk (sampler handles crossfading)
-- Bit depth conversion: convert between 16/24/32-bit with optional dithering
-- Backup creation: automatically backup samples before processing
-- Debug mode: optional JSON sidecar files for detailed metadata (disabled by default)
 
-## Installation
+### Post-Processing- Sample normalize: gain each sample to maximum volume independently
 
-See [REQUIREMENTS.md](REQUIREMENTS.md) for platform-specific installation instructions.
+- **Patch normalize**: Gain all samples to consistent peak level (maintains relative dynamics)- Silence trimming: remove silence from start/end of samples
+
+- **Sample normalize**: Gain each sample to maximum volume independently- DC offset removal: remove DC bias from recordings
+
+- **Silence trimming**: Remove silence from start/end of samples- Auto-loop detection: find and set loop points using autocorrelation algorithm
+
+- **DC offset removal**: Remove DC bias from recordings  - Zero-crossing detection for smooth, click-free loop points
+
+- **Auto-loop detection**: Find and set loop points using autocorrelation algorithm  - Automatic loop detection or manual start/end time specification
+
+  - Zero-crossing detection for smooth, click-free loop points  - Configurable minimum loop duration (percentage or seconds: `55%` or `8.5`)
+
+  - Automatic loop detection or manual start/end time specification  - Loop points stored in WAV RIFF 'smpl' chunk (sampler handles crossfading)
+
+  - Configurable minimum loop duration (percentage or seconds: `55%` or `8.5`)- Bit depth conversion: convert between 16/24/32-bit with optional dithering
+
+  - Loop points stored in WAV RIFF 'smpl' chunk (sampler handles crossfading)- Backup creation: automatically backup samples before processing
+
+- **Bit depth conversion**: Convert between 16/24/32-bit with optional dithering- Debug mode: optional JSON sidecar files for detailed metadata (disabled by default)
+
+- **Backup creation**: Automatically backup samples before processing
+
+- **Debug mode**: Optional JSON sidecar files for detailed metadata (disabled by default)## Installation
+
+
+
+## Quick StartSee [REQUIREMENTS.md](REQUIREMENTS.md) for platform-specific installation instructions.
+
+
+
+### InstallationQuick install (all platforms):
+
+```bash
+
+See [INSTALL.md](INSTALL.md) for platform-specific automated installation scripts.pip install sounddevice numpy scipy mido python-rtmidi pyyaml
+
+```
 
 Quick install (all platforms):
-```bash
+
+```bash## Usage
+
 pip install sounddevice numpy scipy mido python-rtmidi pyyaml
-```
 
-## Usage
+```### 1. Initial Setup
 
-### 1. Initial Setup
 
-Configure your audio and MIDI interfaces:
+
+### Basic UsageConfigure your audio and MIDI interfaces:
+
+
+
+**1. Initial Setup**```bash
+
+python autosamplerT.py --setup
+
+Configure your audio and MIDI interfaces:```
 
 ```bash
-python autosamplerT.py --setup
-```
 
-This will guide you through selecting:
-- Audio input/output devices
+python autosamplerT.py --setup allThis will guide you through selecting:
+
+```- Audio input/output devices
+
 - Sample rate and bit depth
-- MIDI input/output devices
 
-Configuration is saved to `conf/autosamplerT_config.yaml`
+**2. Run Sampling**- MIDI input/output devices
 
-### 2. Run Sampling
+
+
+Using a script file:Configuration is saved to `conf/autosamplerT_config.yaml`
+
+```bash
+
+python autosamplerT.py --script conf/my_synth.yaml### 2. Run Sampling
+
+```
 
 Basic sampling with config file:
 
-```bash
-python autosamplerT.py
-```
+Basic command-line sampling:
 
-Using a script file for batch sampling:
+```bash```bash
 
-```bash
-python autosamplerT.py --script conf/autosamplerT_script.yaml
+python autosamplerT.py --note_range_start C3 --note_range_end C5 --note_range_interval 1python autosamplerT.py
+
+``````
+
+
+
+**3. Post-Process Samples**Using a script file for batch sampling:
+
+
+
+Normalize and trim silence:```bash
+
+```bashpython autosamplerT.py --script conf/autosamplerT_script.yaml
+
+python autosamplerT.py --process "MySynth" --patch_normalize --trim_silence```
+
 ```
 
 ### 3. Command-Line Options
 
-**Important: CLI vs Script Syntax Differences**
+Auto-loop detection:
 
-When using command-line arguments, note range uses **three separate flags**:
+```bash**Important: CLI vs Script Syntax Differences**
+
+python autosamplerT.py --process "MySynth" --auto_loop --loop_min_duration 55%
+
+```When using command-line arguments, note range uses **three separate flags**:
+
 ```bash
-# CLI syntax (three separate flags)
+
+**4. Export to Sampler Formats**# CLI syntax (three separate flags)
+
 python autosamplerT.py --note_range_start 36 --note_range_end 96 --note_range_interval 1
-```
 
-When using script files (YAML), note range uses a **dict with start/end/interval keys**:
-```yaml
-# Script syntax (dict format)
-sampling_midi:
-  note_range: {start: 36, end: 96, interval: 1}
-```
+Export to Waldorf Quantum/Iridium:```
 
-The same applies to velocity layer splits:
-- **CLI**: `--velocity_layers_split 50,90` (comma-separated string)
-- **Script**: `velocity_layers_split: [50, 90]` or `velocity_layers_split: null` (YAML list or null)
-
-View all options:
 ```bash
-python autosamplerT.py --help
-```
+
+python autosamplerT.py --process "MySynth" --export_formats qpatWhen using script files (YAML), note range uses a **dict with start/end/interval keys**:
+
+``````yaml
+
+# Script syntax (dict format)
+
+### Example: Sample with MIDI Controlsampling_midi:
+
+  note_range: {start: 36, end: 96, interval: 1}
+
+Create a YAML script (`conf/my_synth.yaml`):```
+
+```yaml
+
+name: "My Synth Sampling"The same applies to velocity layer splits:
+
+- **CLI**: `--velocity_layers_split 50,90` (comma-separated string)
+
+audio:- **Script**: `velocity_layers_split: [50, 90]` or `velocity_layers_split: null` (YAML list or null)
+
+  samplerate: 48000
+
+  bitdepth: 24View all options:
+
+```bash
+
+midi_interface:python autosamplerT.py --help
+
+  output_port_name: "Prophet 6"```
+
+  program_change: 10
 
 View category-specific help:
-```bash
-python autosamplerT.py --help audio
-python autosamplerT.py --help midi
-python autosamplerT.py --help sampling
-python autosamplerT.py --help postprocessing
-```
+
+sampling:```bash
+
+  note_range_start: 36python autosamplerT.py --help audio
+
+  note_range_end: 96python autosamplerT.py --help midi
+
+  note_range_interval: 1python autosamplerT.py --help sampling
+
+  velocity_layers: 3python autosamplerT.py --help postprocessing
+
+  hold_time: 3.0```
+
+  release_time: 1.5
 
 #### Audio Options Examples
 
-```bash
-# Set sample rate and bit depth
-python autosamplerT.py --samplerate 96000 --bitdepth 24
+sampling_midi:
 
-# Record in mono using left channel
-python autosamplerT.py --mono_stereo mono --mono_channel 0
+  velocity_midi_control:```bash
+
+    - layer: 0# Set sample rate and bit depth
+
+      cc_messages: {7: 32}python autosamplerT.py --samplerate 96000 --bitdepth 24
+
+    - layer: 1
+
+      cc_messages: {7: 80}# Record in mono using left channel
+
+    - layer: 2python autosamplerT.py --mono_stereo mono --mono_channel 0
+
+      cc_messages: {7: 127}
 
 # Record in mono using right channel
-python autosamplerT.py --mono_stereo mono --mono_channel 1
 
-# ASIO multi-channel: Record from Ch A (channels 0-1)
-python autosamplerT.py --channel_offset 0
+postprocessing:python autosamplerT.py --mono_stereo mono --mono_channel 1
+
+  patch_normalize: true
+
+  trim_silence: true# ASIO multi-channel: Record from Ch A (channels 0-1)
+
+  auto_loop: truepython autosamplerT.py --channel_offset 0
+
+  loop_min_duration: "55%"
 
 # ASIO multi-channel: Record from Ch B (channels 2-3)
-python autosamplerT.py --channel_offset 2
 
-# ASIO multi-channel: Record mono from Ch B left (channel 2)
-python autosamplerT.py --channel_offset 2 --mono_stereo mono --mono_channel 0
+export:python autosamplerT.py --channel_offset 2
 
-# Enable normalization and silence detection
+  formats:
+
+    - qpat# ASIO multi-channel: Record mono from Ch B left (channel 2)
+
+  qpat:python autosamplerT.py --channel_offset 2 --mono_stereo mono --mono_channel 0
+
+    location: 2  # SD card
+
+```# Enable normalization and silence detection
+
 python autosamplerT.py --patch_normalize --silence_detection
 
-# Set input gain
-python autosamplerT.py --gain 1.5
-```
+Run the script:
 
-#### MIDI Options Examples
+```bash# Set input gain
 
-**Note Ranges:**
+python autosamplerT.py --script conf/my_synth.yamlpython autosamplerT.py --gain 1.5
 
-```bash
-# Set note range with note names (A#3 to C#5, chromatic)
-python autosamplerT.py --note_range_start A#3 --note_range_end C#5 --note_range_interval 1
+``````
 
-# Set note range with MIDI numbers (C2=36 to C7=96, chromatic)
-python autosamplerT.py --note_range_start 36 --note_range_end 96 --note_range_interval 1
 
-# Sample every octave (C4 to C7)
-python autosamplerT.py --note_range_start C4 --note_range_end C7 --note_range_interval 12
-```
+
+## Documentation#### MIDI Options Examples
+
+
+
+**Complete documentation is available in [doc/DOCUMENTATION.md](doc/DOCUMENTATION.md)****Note Ranges:**
+
+
+
+### Quick Links```bash
+
+- [Setup & Configuration](doc/SETUP.md) - Audio and MIDI device configuration# Set note range with note names (A#3 to C#5, chromatic)
+
+- [MIDI Control](doc/MIDI_CONTROL.md) - Per-layer MIDI messages, CC, SysEx, Program Changepython autosamplerT.py --note_range_start A#3 --note_range_end C#5 --note_range_interval 1
+
+- [Scripting System](doc/SCRIPTING.md) - YAML scripts for automated workflows
+
+- [Command Line Interface](doc/CLI.md) - Complete CLI reference# Set note range with MIDI numbers (C2=36 to C7=96, chromatic)
+
+- [Sampling Engine](doc/SAMPLING.md) - Velocity layers, round-robin, note rangespython autosamplerT.py --note_range_start 36 --note_range_end 96 --note_range_interval 1
+
+- [Output Formats](doc/OUTPUT.md) - SFZ file generation and organization
+
+- [Export Formats](doc/EXPORT_FORMATS.md) - QPAT, Ableton, EXS24, SXT export# Sample every octave (C4 to C7)
+
+- [Post-Processing](doc/POSTPROCESSING.md) - Normalize, trim, auto-looppython autosamplerT.py --note_range_start C4 --note_range_end C7 --note_range_interval 12
+
+- [ASIO Multi-Channel](doc/ASIO_MULTICHANNEL.md) - Multi-channel interface configuration```
+
+- [Quick Start Guide](doc/QUICKSTART.md) - 5-minute setup guide
 
 **Velocity Layers:**
 
+### Help & Examples
+
 ```bash
-# 4 velocity layers with automatic logarithmic distribution (1, 43, 85, 127)
-python autosamplerT.py --velocity_layers 4 --note_range_start C3 --note_range_end C5
+
+```bash# 4 velocity layers with automatic logarithmic distribution (1, 43, 85, 127)
+
+# View all optionspython autosamplerT.py --velocity_layers 4 --note_range_start C3 --note_range_end C5
+
+python autosamplerT.py --help
 
 # Start from velocity 45 instead of 1 (softer samples often not needed)
-python autosamplerT.py --velocity_layers 4 --velocity_minimum 45 --note_range_start C3 --note_range_end C5
 
-# Custom velocity split points for precise control
-python autosamplerT.py --velocity_layers 4 --velocity_layers_split 32,64,96 --note_range_start C3 --note_range_end C5
+# View category-specific helppython autosamplerT.py --velocity_layers 4 --velocity_minimum 45 --note_range_start C3 --note_range_end C5
+
+python autosamplerT.py --help audio
+
+python autosamplerT.py --help midi# Custom velocity split points for precise control
+
+python autosamplerT.py --help samplingpython autosamplerT.py --velocity_layers 4 --velocity_layers_split 32,64,96 --note_range_start C3 --note_range_end C5
+
+python autosamplerT.py --help postprocessing
 
 # Single velocity layer with custom value
-python autosamplerT.py --velocity_layers 1 --velocity_minimum 100 --note_range_start C3 --note_range_end C5
+
+# Browse test examplespython autosamplerT.py --velocity_layers 1 --velocity_minimum 100 --note_range_start C3 --note_range_end C5
+
+ls conf/test/```
+
 ```
 
 **Other MIDI Options:**
 
+## Common Workflows
+
 # Set velocity layers (automatic logarithmic distribution)
-python autosamplerT.py --velocity_layers 4
 
-# Set velocity layers with custom minimum velocity
-python autosamplerT.py --velocity_layers 4 --velocity_minimum 45
-
-# Set velocity layers with custom split points
-python autosamplerT.py --velocity_layers 4 --velocity_layers_split 40,70,100
-
-# Combine minimum velocity with custom splits
-python autosamplerT.py --velocity_layers 3 --velocity_minimum 30 --velocity_layers_split 60,90
-
-# Send program change before sampling
-python autosamplerT.py --program_change 10
-
-# Send 7-bit CC messages (volume=127, pan=center)
-python autosamplerT.py --cc_messages "7,127;10,64"
-
-# Send 14-bit CC messages (modulation=8192 center, expression=16383 max)
-python autosamplerT.py --cc14_messages "1,8192;11,16383"
-
-# Combine both 7-bit and 14-bit CC
-python autosamplerT.py --cc_messages "7,127" --cc14_messages "1,8192"
-```
-
-**Understanding CC Messages:**
-
-**7-bit CC (Control Change):**
-- Range: 0-127 (128 values)
-- Format: `"controller,value;controller,value"` (CLI) or `{controller: value}` (YAML)
-- Common controllers:
-  - CC 1: Modulation Wheel (0-127)
-  - CC 7: Volume (0-127)
-  - CC 10: Pan (0=left, 64=center, 127=right)
-  - CC 11: Expression (0-127)
-  - CC 74: Filter Cutoff (0-127)
-  - CC 71: Filter Resonance (0-127)
-
-**14-bit CC (High Resolution):**
-- Range: 0-16383 (16,384 values)
-- Format: `"controller,value;controller,value"` (CLI) or `{controller: value}` (YAML)
-- Uses two messages automatically: MSB (controller N) + LSB (controller N+32)
-- Controllers: Any CC 0-127 can be 14-bit (uses CC N and CC N+32)
-- Example: CC45 (14-bit) sends CC45 (MSB) + CC77 (LSB)
-- Common uses:
-  - CC 1: Modulation Wheel (0-16383, center=8192)
-  - CC 11: Expression (0-16383)
-  - CC 45: User parameter (common for round-robin layer switching)
-  - High-resolution filter sweeps
-
-```
-
-#### Sampling Options Examples
+### Sample a Hardware Synthpython autosamplerT.py --velocity_layers 4
 
 ```bash
-# Set timing parameters
+
+# 1. Setup devices# Set velocity layers with custom minimum velocity
+
+python autosamplerT.py --setup allpython autosamplerT.py --velocity_layers 4 --velocity_minimum 45
+
+
+
+# 2. Create a script with MIDI control# Set velocity layers with custom split points
+
+# See doc/MIDI_CONTROL.md for examplespython autosamplerT.py --velocity_layers 4 --velocity_layers_split 40,70,100
+
+
+
+# 3. Run sampling# Combine minimum velocity with custom splits
+
+python autosamplerT.py --script conf/my_synth.yamlpython autosamplerT.py --velocity_layers 3 --velocity_minimum 30 --velocity_layers_split 60,90
+
+
+
+# 4. Export to your sampler# Send program change before sampling
+
+python autosamplerT.py --process "MySynth" --export_formats qpatpython autosamplerT.py --program_change 10
+
+```
+
+# Send 7-bit CC messages (volume=127, pan=center)
+
+### Multi-Patch Samplingpython autosamplerT.py --cc_messages "7,127;10,64"
+
+```yaml
+
+# Use program changes to sample multiple patches# Send 14-bit CC messages (modulation=8192 center, expression=16383 max)
+
+sampling_midi:python autosamplerT.py --cc14_messages "1,8192;11,16383"
+
+  velocity_midi_control:
+
+    - layer: 0# Combine both 7-bit and 14-bit CC
+
+      program_change: 0python autosamplerT.py --cc_messages "7,127" --cc14_messages "1,8192"
+
+      cc_messages: {7: 64}```
+
+    - layer: 1
+
+      program_change: 5**Understanding CC Messages:**
+
+      cc_messages: {7: 100}
+
+```**7-bit CC (Control Change):**
+
+- Range: 0-127 (128 values)
+
+### Velocity Layers with CC Control- Format: `"controller,value;controller,value"` (CLI) or `{controller: value}` (YAML)
+
+```yaml- Common controllers:
+
+# Different CC values per velocity layer  - CC 1: Modulation Wheel (0-127)
+
+sampling_midi:  - CC 7: Volume (0-127)
+
+  velocity_midi_control:  - CC 10: Pan (0=left, 64=center, 127=right)
+
+    - layer: 0  # Soft  - CC 11: Expression (0-127)
+
+      cc_messages: {7: 32, 74: 40}  - CC 74: Filter Cutoff (0-127)
+
+    - layer: 1  # Medium  - CC 71: Filter Resonance (0-127)
+
+      cc_messages: {7: 80, 74: 80}
+
+    - layer: 2  # Hard**14-bit CC (High Resolution):**
+
+      cc_messages: {7: 127, 74: 120}- Range: 0-16383 (16,384 values)
+
+```- Format: `"controller,value;controller,value"` (CLI) or `{controller: value}` (YAML)
+
+- Uses two messages automatically: MSB (controller N) + LSB (controller N+32)
+
+### Round-Robin with NRPN- Controllers: Any CC 0-127 can be 14-bit (uses CC N and CC N+32)
+
+```yaml- Example: CC45 (14-bit) sends CC45 (MSB) + CC77 (LSB)
+
+# Use NRPN or CC14 for round-robin variations- Common uses:
+
+sampling_midi:  - CC 1: Modulation Wheel (0-16383, center=8192)
+
+  roundrobin_midi_control:  - CC 11: Expression (0-16383)
+
+    - layer: 0  - CC 45: User parameter (common for round-robin layer switching)
+
+      nrpn_messages: {45: 0}  - High-resolution filter sweeps
+
+    - layer: 1
+
+      nrpn_messages: {45: 55}```
+
+    - layer: 2
+
+      nrpn_messages: {45: 110}#### Sampling Options Examples
+
+```
+
+```bash
+
+## Troubleshooting# Set timing parameters
+
 python autosamplerT.py --hold_time 2.0 --release_time 1.5 --pause_time 0.5
 
-# Set output parameters
-python autosamplerT.py --output_folder ./my_samples --multisample_name "My_Synth"
+**No audio devices found:**
 
-# Enable test mode (no actual recording)
-python autosamplerT.py --test_mode
+- Ensure PortAudio is installed (see [REQUIREMENTS.md](REQUIREMENTS.md))# Set output parameters
+
+- Check that your audio interface is connected and recognized by the OSpython autosamplerT.py --output_folder ./my_samples --multisample_name "My_Synth"
+
+
+
+**MIDI devices not showing:**# Enable test mode (no actual recording)
+
+- Verify MIDI interface drivers are installedpython autosamplerT.py --test_mode
+
+- Check OS MIDI settings/permissions
 
 # Set round-robin layers
-python autosamplerT.py --roundrobin_layers 3
-```
+
+**Samples are clipping:**python autosamplerT.py --roundrobin_layers 3
+
+- Reduce input gain: `--gain 0.8````
+
+- Enable normalization: `--patch_normalize`
 
 #### Postprocessing Options Examples
 
-**What's the difference between patch and sample normalize?**
-- **Patch normalize** (`--patch_normalize`): Analyzes all samples in the multisample to find the loudest peak, then applies the same gain to ALL samples so they have consistent relative levels. Use this to maintain the natural dynamics between soft and loud samples.
-- **Sample normalize** (`--sample_normalize`): Normalizes each sample independently to its maximum volume. This destroys the relative dynamics but ensures every sample is as loud as possible. Use for drum kits or when dynamics don't matter.
+**Silence detection trimming too much:**
 
-**Basic Postprocessing:**
+- Adjust by editing threshold in `src/sampler.py` (default: 0.001)**What's the difference between patch and sample normalize?**
+
+- **Patch normalize** (`--patch_normalize`): Analyzes all samples in the multisample to find the loudest peak, then applies the same gain to ALL samples so they have consistent relative levels. Use this to maintain the natural dynamics between soft and loud samples.
+
+**Program changes not working:**- **Sample normalize** (`--sample_normalize`): Normalizes each sample independently to its maximum volume. This destroys the relative dynamics but ensures every sample is as loud as possible. Use for drum kits or when dynamics don't matter.
+
+- Check synth MIDI settings (some require enabling program change receive)
+
+- Prophet 6 uses 0-indexed: Program Change 0 = Patch 0**Basic Postprocessing:**
+
 ```bash
-# Patch normalize: maintain relative dynamics between samples
+
+## Requirements# Patch normalize: maintain relative dynamics between samples
+
 python autosamplerT.py --process "MySynth" --patch_normalize --trim_silence
 
-# Sample normalize: maximize each sample independently
-python autosamplerT.py --process "DrumKit" --sample_normalize --trim_silence
+- Python 3.8+
 
-# Process samples in a specific folder
+- sounddevice, numpy, scipy, mido, python-rtmidi, pyyaml# Sample normalize: maximize each sample independently
+
+- PortAudio (ASIO/WASAPI on Windows, JACK/ALSA on Linux, CoreAudio on macOS)python autosamplerT.py --process "DrumKit" --sample_normalize --trim_silence
+
+
+
+See [REQUIREMENTS.md](REQUIREMENTS.md) for detailed platform-specific instructions.# Process samples in a specific folder
+
 python autosamplerT.py --process_folder ./output/MySynth --patch_normalize --auto_loop
 
+## License
+
 # Normalize and trim with backup (recommended for safety)
-python autosamplerT.py --process "MySynth" --patch_normalize --trim_silence --backup
 
-# Remove DC offset (recommended for all recordings)
+GPL3python autosamplerT.py --process "MySynth" --patch_normalize --trim_silence --backup
+
+
+
+## Credits# Remove DC offset (recommended for all recordings)
+
 python autosamplerT.py --process "MySynth" --dc_offset_removal
-```
 
-**Auto-Loop Detection:**
+AutosamplerT - Cross-platform hardware synth autosampler```
 
-AutosamplerT uses advanced autocorrelation analysis with zero-crossing detection to find perfect loop points.
+
+
+---**Auto-Loop Detection:**
+
+
+
+For complete documentation, see [doc/DOCUMENTATION.md](doc/DOCUMENTATION.md)AutosamplerT uses advanced autocorrelation analysis with zero-crossing detection to find perfect loop points.
+
 
 ```bash
 # Auto-loop with percentage-based minimum duration (55% of sample length)

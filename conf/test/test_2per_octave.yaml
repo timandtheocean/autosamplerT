@@ -1,0 +1,42 @@
+# Test: 2 samples per octave
+# Settings: 5s hold, 1s release, 1s pause
+
+name: "2 Samples Per Octave Test"
+description: "Sample every 6 semitones with 5s hold time"
+
+# Audio configuration
+audio:
+  samplerate: 44100
+  bitdepth: 24
+  mono_stereo: stereo
+
+# MIDI interface
+midi_interface:
+  output_port_name: "Prophet 6"
+  channel: 0
+
+# Sampling configuration
+sampling:
+  note_range_start: 36    # C2
+  note_range_end: 96      # C7
+  note_range_interval: 6  # 2 samples per octave
+  velocity_layers: 1
+  roundrobin_layers: 1
+  
+  hold_time: 5.0      # 5 seconds
+  release_time: 1.0   # 1 second
+  pause_time: 1.0     # 1 second between samples
+
+# Post-processing
+postprocessing:
+  trim_silence: false
+  normalize_db: -1
+
+# Export
+export:
+  formats: []
+
+# Output
+output:
+  folder: "output/test_2per_octave"
+  multisample_name: "test_2per_octave"

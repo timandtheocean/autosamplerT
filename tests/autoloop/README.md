@@ -150,11 +150,11 @@ TEST SUMMARY
 ======================================================================
 
 Total tests: 13
-  ✅ Passed:   13
-  ❌ Failed:   0
+   Passed:   13
+  Failed:   0
   ⚠️  Warned:   0
   ⏭️  Skipped:  0
-  ❌ Errors:   0
+  Errors:   0
   ⏱️  Timeouts: 0
 ```
 

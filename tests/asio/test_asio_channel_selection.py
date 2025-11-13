@@ -99,7 +99,7 @@ def test_channel_selection():
             rms = np.sqrt(np.mean(recording ** 2, axis=0))
             peak = np.max(np.abs(recording), axis=0)
             
-            print(f"\n✅ Recording successful!")
+            print(f"\n Recording successful!")
             print(f"Shape: {recording.shape}")
             
             if test['channels'] == 1:
@@ -138,7 +138,7 @@ def test_channel_selection():
                 print(f"⚠️  WARNING: No audio signal detected (RMS too low)")
             
         except Exception as e:
-            print(f"\n❌ ERROR: {e}")
+            print(f"\nERROR: {e}")
             result = {
                 'test': test['name'],
                 'status': 'FAIL',
@@ -152,7 +152,7 @@ def test_channel_selection():
     print(f"{'='*80}")
     
     for result in results:
-        status_icon = '✅' if result['status'] == 'PASS' else '❌'
+        status_icon = '' if result['status'] == 'PASS' else '❌'
         print(f"\n{status_icon} {result['test']}: {result['status']}")
         
         if result['status'] == 'PASS':
@@ -175,10 +175,10 @@ def test_channel_selection():
     total = len(results)
     
     if passed == total:
-        print(f"✅ ALL TESTS PASSED ({passed}/{total})")
+        print(f" ALL TESTS PASSED ({passed}/{total})")
         return 0
     else:
-        print(f"❌ SOME TESTS FAILED ({passed}/{total} passed)")
+        print(f"SOME TESTS FAILED ({passed}/{total} passed)")
         return 1
 
 if __name__ == "__main__":

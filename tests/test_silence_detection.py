@@ -157,7 +157,7 @@ def test_silence_detection(hold_time, release_time, test_name):
         # Find the generated WAV file
         wav_files = list(temp_dir.glob('*.wav'))
         if not wav_files:
-            print("❌ FAIL: No WAV files generated")
+            print("FAIL: No WAV files generated")
             return False
         
         wav_file = wav_files[0]
@@ -182,7 +182,7 @@ def test_silence_detection(hold_time, release_time, test_name):
         
         # Check if audio was detected
         if not info['has_audio']:
-            print("\n❌ FAIL: No audio content detected (synth not playing?)")
+            print("\nFAIL: No audio content detected (synth not playing?)")
             return False
         
         # Check if leading silence was trimmed
@@ -210,19 +210,19 @@ def test_silence_detection(hold_time, release_time, test_name):
         # Overall assessment
         print(f"\n{'='*70}")
         if info['has_audio'] and info['audio_start'] <= 0.010:
-            print(f"✅ TEST PASSED: {test_name}")
+            print(f" TEST PASSED: {test_name}")
             print("   - Audio content detected")
             print("   - Leading silence properly trimmed")
             result = True
         else:
-            print(f"❌ TEST FAILED: {test_name}")
+            print(f"TEST FAILED: {test_name}")
             result = False
         print(f"{'='*70}")
         
         return result
         
     except Exception as e:
-        print(f"\n❌ TEST ERROR: {e}")
+        print(f"\nTEST ERROR: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -284,14 +284,14 @@ def main():
     print(f"\nTests passed: {passed}/{total}")
     
     if passed == total:
-        print("\n✅ ALL TESTS PASSED")
+        print("\n ALL TESTS PASSED")
         print("\nConclusion:")
         print("  - Silence detection is working correctly")
         print("  - Recording latency is properly compensated")
         print("  - Leading/trailing silence is being trimmed")
         print("  - Samples contain correct audio content")
     else:
-        print("\n❌ SOME TESTS FAILED")
+        print("\nSOME TESTS FAILED")
         print("\nPossible issues:")
         print("  - Synth not responding to MIDI")
         print("  - Silence detection threshold too high/low")

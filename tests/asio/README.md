@@ -36,7 +36,7 @@ python check_device_channels.py
 python test_asio_direct.py
 ```
 
-**Expected**: ✅ Success - Records 2 seconds, displays shape
+**Expected**:  Success - Records 2 seconds, displays shape
 
 ### Test ASIO Thread Recording (Worker Thread)
 
@@ -44,7 +44,7 @@ python test_asio_direct.py
 python test_asio_thread.py
 ```
 
-**Expected**: ❌ Failure - "Failed to load ASIO driver" (this proves ASIO threading limitation)
+**Expected**: Failure - "Failed to load ASIO driver" (this proves ASIO threading limitation)
 
 ### Test Channel Selection
 
@@ -52,7 +52,7 @@ python test_asio_thread.py
 python test_asio_channel_selection.py
 ```
 
-**Expected**: ✅ Success - Records from specific channel pair
+**Expected**:  Success - Records from specific channel pair
 
 ## ASIO Threading Issue
 
@@ -63,14 +63,14 @@ python test_asio_channel_selection.py
 # This FAILS in worker thread:
 def worker_thread():
     settings = sd.AsioSettings(channel_selectors=[2, 3])
-    audio = sd.rec(frames, extra_settings=settings)  # ❌ ERROR
+    audio = sd.rec(frames, extra_settings=settings)  # ERROR
 ```
 
 ### Solution
 ```python
 # This WORKS in main thread:
 settings = sd.AsioSettings(channel_selectors=[2, 3])
-audio = sd.rec(frames, extra_settings=settings)  # ✅ SUCCESS
+audio = sd.rec(frames, extra_settings=settings)  #  SUCCESS
 ```
 
 ### Implementation in Sampler
@@ -114,12 +114,12 @@ audio_interface:
 ## Test Results
 
 All ASIO tests validated:
-- ✅ ASIO driver loads successfully
-- ✅ Multi-channel device detection works
-- ✅ Channel pair selection works (Ch A, Ch B)
-- ✅ Direct recording from main thread works
-- ✅ Threading limitation confirmed (expected behavior)
-- ✅ Long recordings (10s+) work without hanging
+-  ASIO driver loads successfully
+-  Multi-channel device detection works
+-  Channel pair selection works (Ch A, Ch B)
+-  Direct recording from main thread works
+-  Threading limitation confirmed (expected behavior)
+-  Long recordings (10s+) work without hanging
 
 ## Documentation
 

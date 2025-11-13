@@ -6,17 +6,17 @@ AutosamplerT supports exporting multisamples to various hardware and software sa
 
 | Format | Status | Description |
 |--------|--------|-------------|
-| **SFZ** | ✅ Native | Native format, always created |
-| **QPAT** | ✅ Implemented | Waldorf Quantum/Iridium format |
-| **Ableton** | 🚧 TODO | Ableton Live Sampler/Simpler |
-| **EXS24** | 🚧 TODO | Logic Pro EXS24 format |
-| **SXT** | 🚧 TODO | Native Instruments Kontakt |
+| **SFZ** | Native | Native format, always created |
+| **QPAT** | Implemented | Waldorf Quantum/Iridium format |
+| **Ableton** | TODO | Ableton Live Sampler/Simpler |
+| **EXS24** | TODO | Logic Pro EXS24 format |
+| **SXT** | TODO | Native Instruments Kontakt |
 
 ---
 
 ## SFZ Format (Native)
 
-**Status:** ✅ Always created during sampling
+**Status:**  Always created during sampling
 
 ### Overview
 SFZ is a text-based format that defines sample mappings. AutosamplerT uses this as the native format and generates it automatically during sampling.
@@ -33,14 +33,14 @@ output/
 ```
 
 ### Features Supported
-- ✅ Velocity layers
-- ✅ Round-robin layers
-- ✅ Key mapping
-- ✅ Loop points (stored in WAV SMPL chunk)
-- ✅ Volume/pan control
-- ✅ Pitch tuning
-- ✅ ADSR envelopes
-- ✅ Filters
+-  Velocity layers
+-  Round-robin layers
+-  Key mapping
+-  Loop points (stored in WAV SMPL chunk)
+-  Volume/pan control
+-  Pitch tuning
+-  ADSR envelopes
+-  Filters
 
 ### Compatibility
 - Compatible with any SFZ-supporting sampler:
@@ -56,16 +56,16 @@ No export needed - SFZ is created automatically during sampling.
 
 ## Waldorf Quantum/Iridium QPAT Format
 
-**Status:** ✅ Fully Implemented
+**Status:**  Fully Implemented
 
 ### Overview
-The QPAT format is the native patch format for Waldorf Quantum and Iridium synthesizers. It combines binary header data with tab-separated sample maps and synth parameters.
+The QPAT format is the native patch format for Waldorf Quantum and Iridium synthesizers. QPAT files are **text files** with a 512-byte binary header followed by plain text sections containing tab-separated sample maps and synth parameters.
 
 ### File Structure
 ```
 output/
   MySynth/
-    MySynth.qpat         # Binary patch file
+    MySynth.qpat         # Text file with binary header (512 bytes) + text sections
     samples/
       MySynth/
         MySynth_C3_v127_rr1.wav
@@ -126,13 +126,13 @@ Up to 3 sample maps (one per velocity layer or round-robin group).
 
 The path column uses a location prefix to specify where samples are stored:
 
-- **`2:`** - SD card
+- **`2:`** - SD card (recommended - default)
 - **`3:`** - Internal memory
-- **`4:`** - USB drive (recommended - triggers auto-import)
+- **`4:`** - USB drive (triggers auto-import to internal memory)
 
-**Example:**
+**Example (SD card):**
 ```
-"4:samples/MySynth/MySynth_C3_v127.wav"	60.00000000	48	72	1.00000000	0	127	0.50000000	0.00000000	1.00000000	1	0.20000000	0.80000000	0	0.00000000	1
+"2:samples/MySynth/MySynth_C3_v127.wav"	60.00000000	48	72	1.00000000	0	127	0.50000000	0.00000000	1.00000000	1	0.20000000	0.80000000	0	0.00000000	1
 ```
 
 ### Waldorf-Specific Constraints
@@ -161,11 +161,11 @@ The path column uses a location prefix to specify where samples are stored:
 
 #### Export from Existing SFZ
 ```bash
-# Basic export
+# Basic export (SD card by default)
 python autosamplerT.py --process MySynth --export_formats qpat
 
-# Custom location (SD card)
-python autosamplerT.py --process MySynth --export_formats qpat --export_location 2
+# USB location (triggers auto-import to internal memory)
+python autosamplerT.py --process MySynth --export_formats qpat --export_location 4
 
 # With audio optimization
 python autosamplerT.py --process MySynth --export_formats qpat --export_optimize_audio
@@ -183,34 +183,41 @@ export:
   formats:
     - qpat
   qpat:
-    location: 4              # 4=USB (triggers auto-import)
+    location: 2              # 2=SD card (default), 3=internal, 4=USB
     optimize_audio: true     # Convert to 44.1kHz 32-bit
 ```
 
 ### Importing to Quantum/Iridium
 
-1. **Connect USB drive** to your computer
-2. **Export with location 4** (USB):
+#### Option 1: SD Card (Recommended)
+1. **Export to SD card location** (default):
+   ```bash
+   python autosamplerT.py --process MySynth --export_formats qpat
+   ```
+2. **Copy output folder** to SD card root or organized folder
+3. **Insert SD card** into Quantum/Iridium
+4. **Load patch** from SD card location
+5. Samples play directly from SD card (no internal memory used)
+
+#### Option 2: USB Auto-Import
+1. **Export with USB location**:
    ```bash
    python autosamplerT.py --process MySynth --export_formats qpat --export_location 4
    ```
-3. **Copy output folder** to USB drive root or organized folder
-4. **Connect USB drive** to Quantum/Iridium USB port
-5. **Load patch** on synth:
-   - Navigate to USB location
-   - Select `.qpat` file
-   - Synth will auto-import samples to internal memory
-6. **Samples are copied** to internal memory (can disconnect USB after)
+2. **Copy output folder** to USB drive
+3. **Connect USB drive** to Quantum/Iridium USB port
+4. **Load patch** - synth auto-imports samples to internal memory
+5. Can disconnect USB after import completes
 
 ### Features Supported
-- ✅ Velocity layers (up to 3)
-- ✅ Round-robin layers (up to 3)
-- ✅ Key mapping with ranges
-- ✅ Loop points (forward and ping-pong)
-- ✅ Gain control
-- ✅ Pan positioning
-- ✅ Pitch/tuning
-- ✅ Key tracking
+-  Velocity layers (up to 3)
+-  Round-robin layers (up to 3)
+-  Key mapping with ranges
+-  Loop points (forward and ping-pong)
+-  Gain control
+-  Pan positioning
+-  Pitch/tuning
+-  Key tracking
 - ⚠️ Filters (basic support, limited modulation)
 - ⚠️ Envelopes (ADSR only, simplified curves)
 
@@ -223,11 +230,14 @@ export:
 
 ### Troubleshooting
 
-**Problem:** Samples don't load on Quantum
-- **Solution:** Ensure `--export_location 4` (USB) is used to trigger auto-import
+**Problem:** Samples don't load from SD card
+- **Solution:** Verify SD card is properly formatted and inserted. Check file paths are correct.
+
+**Problem:** USB auto-import not working
+- **Solution:** Use `--export_location 4` to enable USB auto-import trigger
 
 **Problem:** "Out of memory" error
-- **Solution:** Reduce number of samples or enable `--export_optimize_audio` to convert to optimal format
+- **Solution:** Use SD card (location 2) instead of internal memory, or reduce number of samples
 
 **Problem:** Velocity layers don't switch
 - **Solution:** Check velocity ranges in SFZ don't overlap, ensure `fromVelo`/`toVelo` are correct
@@ -239,7 +249,7 @@ export:
 
 ## Ableton Live Format
 
-**Status:** 🚧 TODO - Planned for future release
+**Status:**  TODO - Planned for future release
 
 ### Overview
 Export format for Ableton Live's Sampler and Simpler devices.
@@ -260,7 +270,7 @@ Export format for Ableton Live's Sampler and Simpler devices.
 
 ## Logic Pro EXS24 Format
 
-**Status:** 🚧 TODO - Planned for future release
+**Status:**  TODO - Planned for future release
 
 ### Overview
 Export format for Logic Pro's EXS24 sampler.
@@ -280,7 +290,7 @@ Export format for Logic Pro's EXS24 sampler.
 
 ## Native Instruments Kontakt SXT Format
 
-**Status:** 🚧 TODO - Planned for future release
+**Status:**  TODO - Planned for future release
 
 ### Overview
 Export format for Native Instruments Kontakt sampler.
@@ -387,7 +397,13 @@ Comma-separated list of export formats: `qpat`, `ableton`, `exs`, `sxt`
 Waldorf sample location (QPAT only):
 - `2` = SD card
 - `3` = Internal memory
-- `4` = USB drive (default, triggers auto-import)
+```bash
+--export_location 2|3|4
+```
+Waldorf sample location (QPAT only):
+- `2` = SD card (default, recommended)
+- `3` = Internal memory
+- `4` = USB drive (triggers auto-import to internal)
 
 ```bash
 --export_optimize_audio
@@ -403,7 +419,7 @@ export:
     - ableton
     - exs
   qpat:
-    location: 4              # Sample location (2=SD, 3=internal, 4=USB)
+    location: 2              # Sample location (2=SD default, 3=internal, 4=USB)
     optimize_audio: true     # Convert to 44.1kHz 32-bit
 ```
 

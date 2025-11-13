@@ -8,28 +8,28 @@ Complete documentation for AutosamplerT - an advanced automatic sampler with MID
 
 We provide automated installation scripts for all platforms:
 
-- **[INSTALL.md](INSTALL.md)** - Complete installation guide with automated and manual instructions
+- **[INSTALL.md](../INSTALL.md)** - Complete installation guide with automated and manual instructions
 - **Windows:** Run `install.ps1` in PowerShell - handles Python installation via winget
 - **Linux:** Run `install.sh` - supports Ubuntu, Fedora, Arch, openSUSE, and more
 - **macOS:** Run `install-mac.sh` - includes Homebrew integration and audio libraries
 
 All scripts automatically:
-- ✓ Detect and install Python 3.8+ if needed
-- ✓ Install system audio libraries (ALSA, JACK, PortAudio)
-- ✓ Create virtual environment
-- ✓ Install all Python dependencies
-- ✓ Verify installation and test functionality
+- [DONE] Detect and install Python 3.8+ if needed
+- [DONE] Install system audio libraries (ALSA, JACK, PortAudio)
+- [DONE] Create virtual environment
+- [DONE] Install all Python dependencies
+- [DONE] Verify installation and test functionality
 
 ## Quick Links
 
-- [README](README.md) - Project overview and quick start
-- [REQUIREMENTS](REQUIREMENTS.md) - Installation and dependencies
-- [IMPLEMENTATION](IMPLEMENTATION.md) - Technical implementation details
-- [TODO](TODO.md) - Roadmap and future plans
+- [README](../README.md) - Project overview and quick start
+- [REQUIREMENTS](../REQUIREMENTS.md) - Installation and dependencies
+- [IMPLEMENTATION](../IMPLEMENTATION.md) - Technical implementation details
+- [TODO](../TODO.md) - Roadmap and future plans
 
 ## Core Documentation
 
-### 1. [Setup & Configuration](doc/SETUP.md)
+### 1. [Setup & Configuration](SETUP.md)
 Learn how to configure audio and MIDI devices for sampling.
 
 **Topics covered:**
@@ -43,7 +43,7 @@ Learn how to configure audio and MIDI devices for sampling.
 
 ---
 
-### 2. [MIDI Control](doc/MIDI_CONTROL.md)
+### 2. [MIDI Control](MIDI_CONTROL.md)
 Advanced MIDI control for per-layer message transmission.
 
 **Topics covered:**
@@ -59,7 +59,7 @@ Advanced MIDI control for per-layer message transmission.
 
 ---
 
-### 3. [Scripting System](doc/SCRIPTING.md)
+### 3. [Scripting System](SCRIPTING.md)
 YAML-based scripting for automated sampling workflows.
 
 **Topics covered:**
@@ -73,7 +73,7 @@ YAML-based scripting for automated sampling workflows.
 
 ---
 
-### 4. [Command Line Interface](doc/CLI.md)
+### 4. [Command Line Interface](CLI.md)
 Complete CLI reference and usage patterns.
 
 **Topics covered:**
@@ -87,7 +87,7 @@ Complete CLI reference and usage patterns.
 
 ---
 
-### 5. [Sampling Engine](doc/SAMPLING.md)
+### 5. [Sampling Engine](SAMPLING.md)
 Core sampling functionality and parameters.
 
 **Topics covered:**
@@ -102,7 +102,7 @@ Core sampling functionality and parameters.
 
 ---
 
-### 6. [Output Formats](doc/OUTPUT.md)
+### 6. [Output Formats](OUTPUT.md)
 Sample file organization and format generation.
 
 **Topics covered:**
@@ -116,14 +116,14 @@ Sample file organization and format generation.
 
 ---
 
-### 7. [Export Formats](doc/EXPORT_FORMATS.md)
+### 7. [Export Formats](EXPORT_FORMATS.md)
 Convert and export to various sampler formats.
 
 **Topics covered:**
-- Waldorf Quantum/Iridium QPAT format (✅ implemented)
-- Ableton Live format (🚧 planned)
-- Logic Pro EXS24 format (🚧 planned)
-- Kontakt SXT format (🚧 planned)
+- Waldorf Quantum/Iridium QPAT format [DONE]
+- Ableton Live format [TODO]
+- Logic Pro EXS24 format [TODO]
+- Kontakt SXT format [TODO]
 - QPAT format specification (binary header, parameters, sample maps)
 - Sample location prefixes and import workflow
 - Multi-format export workflow
@@ -133,7 +133,7 @@ Convert and export to various sampler formats.
 
 ---
 
-### 8. [Post-Processing](doc/POSTPROCESSING.md)
+### 8. [Post-Processing](POSTPROCESSING.md)
 Audio processing after sample capture.
 
 **Topics covered:**
@@ -144,6 +144,32 @@ Audio processing after sample capture.
 - Batch processing
 
 **When to use:** Improving sample quality, normalizing levels, trimming silent sections
+
+---
+
+## Advanced Documentation
+
+### [ASIO Multi-Channel](ASIO_MULTICHANNEL.md)
+ASIO interface configuration for multi-channel audio devices.
+
+**Topics covered:**
+- Channel offset configuration
+- Stereo pair selection
+- Multi-channel device setup
+
+**When to use:** Using ASIO interfaces with multiple inputs
+
+---
+
+### [Quick Start Guide](QUICKSTART.md)
+Fast track to getting started with AutosamplerT.
+
+**Topics covered:**
+- 5-minute setup
+- First sampling session
+- Basic workflow
+
+**When to use:** New users wanting to get started quickly
 
 ---
 
@@ -208,7 +234,7 @@ python autosamplerT.py --script conf/my_synth.yaml
 
 ## Contributing
 
-See [IMPLEMENTATION.md](IMPLEMENTATION.md) for technical details and contribution guidelines.
+See [IMPLEMENTATION.md](../IMPLEMENTATION.md) for technical details and contribution guidelines.
 
 ## Version Information
 

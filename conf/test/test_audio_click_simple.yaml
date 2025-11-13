@@ -1,0 +1,46 @@
+# Simple Audio Click Test - Just 2 samples
+#
+# Purpose: Quick test of audio click fix with long recordings
+# Samples: C4 (60) and F#4 (66) only
+# Duration: 10s hold + 2s release per sample
+
+name: "Audio Click Test - Simple"
+description: "Test 2 samples with 10s hold time to verify click fix"
+
+# Audio configuration
+audio:
+  samplerate: 44100
+  bitdepth: 24
+  mono_stereo: stereo
+
+# MIDI interface
+midi_interface:
+  output_port_name: "Prophet 6"
+  channel: 0
+
+# Sampling configuration
+sampling:
+  note_range_start: 60    # C4
+  note_range_end: 66      # F#4
+  note_range_interval: 6  # Skip to next sample (2 per octave)
+  velocity_layers: 1
+  roundrobin_layers: 1
+  
+  # Long durations to test fix
+  hold_time: 10.0      # 10 seconds
+  release_time: 2.0    # 2 seconds
+  pause_time: 3.0      # 3 seconds between samples
+
+# Post-processing
+postprocessing:
+  trim_silence: false  # Keep full recording to check endings
+  normalize_db: -1
+
+# Export
+export:
+  formats: []
+
+# Output
+output:
+  folder: "output/test_click"
+  multisample_name: "click_test"

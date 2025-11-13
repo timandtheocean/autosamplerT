@@ -120,7 +120,7 @@ python autosamplerT.py --note_range_start C2 --note_range_end D#3 --note_range_i
 96kHz, 24-bit, normalized:
 
 ```bash
-python autosamplerT.py --samplerate 96000 --bitdepth 24 --patch_normalize --silence_detection
+python autosamplerT.py --samplerate 96000 --bitdepth 24 --patch_normalize
 ```
 
 ## Using Script Files
@@ -166,7 +166,8 @@ Load the `.sfz` file in your sampler (SFZ Player, etc.)
 
 **Note starts are cut off**
 - Increase `--latency_compensation 50` (milliseconds)
-- Or disable `--no_silence_detection`
+- Check that your synth's attack envelope is not too slow
+- Verify audio interface latency settings
 
 ## Advanced Options
 

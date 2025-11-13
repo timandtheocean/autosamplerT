@@ -330,7 +330,7 @@ def main():
         # ASIO: Select device and channel pairs
         device_idx, input_offset, _, output_offset = select_asio_device_and_channels(api_idx)
         if device_idx is None:
-            print("\n❌ Configuration cancelled.")
+            print("\nConfiguration cancelled.")
             return
         input_idx = device_idx
         output_idx = device_idx
@@ -383,7 +383,7 @@ def main():
             print(f"  Channel offset: {output_offset} (channels {output_offset}-{output_offset+1})")
     print(f"Sample rate: {samplerate} Hz")
     print(f"Bit depth: {bitdepth} bit")
-    print(f"\n✅ Configuration saved to: {CONFIG_FILE}")
+    print(f"\n Configuration saved to: {CONFIG_FILE}")
 
 if __name__ == "__main__":
 	main()
