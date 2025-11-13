@@ -213,60 +213,136 @@ class AutoSampler:
         self.interactive_notes_sampled += 1
         
         if self.interactive_notes_sampled % self.interactive_every == 0:
-            # Pause for user intervention
-            logging.info(f"\n{'='*60}")
-            logging.info(f"INTERACTIVE PAUSE: Sampled {self.interactive_notes_sampled} notes")
-            logging.info(f"{'='*60}")
+            # Clear screen and show interactive pause UI
+            import sys
             
-            # Display prompt
-            print(f"\n{self.interactive_prompt}")
+            # ANSI escape codes for terminal control
+            CLEAR_SCREEN = '\033[2J\033[H'  # Clear screen and move to top
+            HIDE_CURSOR = '\033[?25l'       # Hide cursor
+            SHOW_CURSOR = '\033[?25h'       # Show cursor
+            
+            # Use print instead of logging for cleaner output
+            print(CLEAR_SCREEN, end='', flush=True)
+            print(HIDE_CURSOR, end='', flush=True)
+            
+            # Display header
+            print("=" * 70)
+            print("INTERACTIVE PAUSE".center(70))
+            print("=" * 70)
+            print()
+            
+            # Sampling progress
+            print(f"  Notes Sampled:     {self.interactive_notes_sampled}")
+            print(f"  Samples per Note:  {self.velocity_layers} velocity × {self.roundrobin_layers} round-robin = {self.velocity_layers * self.roundrobin_layers}")
+            print(f"  Total Samples:     {self.interactive_notes_sampled * self.velocity_layers * self.roundrobin_layers}")
+            print()
+            
+            # Timing information
+            print(f"  Hold Time:         {self.hold_time:.2f}s")
+            print(f"  Release Time:      {self.release_time:.2f}s")
+            print(f"  Pause Time:        {self.pause_time:.2f}s")
+            print(f"  Time per Sample:   {self.hold_time + self.release_time + self.pause_time:.2f}s")
+            print()
+            
+            # User prompt
+            print("-" * 70)
+            print()
+            print(f"  {self.interactive_prompt}")
+            print()
+            print("-" * 70)
+            print()
             
             # Handle continue mode
             if self.interactive_continue > 0:
-                # Auto-resume after timeout
-                print(f"Will auto-resume in {self.interactive_continue} seconds...")
-                print("(Press Enter to continue immediately)")
+                # Auto-resume after timeout with progress bar
+                print(f"  Auto-resume in {self.interactive_continue:.0f} seconds (or press Enter to continue now)")
+                print()
                 
                 import sys
-                import select
                 
-                # Platform-specific input handling
+                # Platform-specific input handling with progress bar
                 if sys.platform == 'win32':
                     import msvcrt
                     start_time = time.time()
-                    while time.time() - start_time < self.interactive_continue:
+                    bar_width = 50
+                    
+                    while True:
+                        elapsed = time.time() - start_time
+                        remaining = self.interactive_continue - elapsed
+                        
+                        if remaining <= 0:
+                            break
+                        
+                        # Check for keypress
                         if msvcrt.kbhit():
                             msvcrt.getch()  # Clear the keypress
-                            logging.info("User pressed key - resuming")
-                            break
+                            print(SHOW_CURSOR, end='', flush=True)
+                            print("\n  User pressed key - resuming...\n")
+                            print("=" * 70)
+                            return
+                        
+                        # Draw progress bar
+                        progress = elapsed / self.interactive_continue
+                        filled = int(bar_width * progress)
+                        bar = '█' * filled + '░' * (bar_width - filled)
+                        print(f"\r  [{bar}] {remaining:.1f}s  ", end='', flush=True)
+                        
                         time.sleep(0.1)
-                    else:
-                        logging.info(f"Auto-resuming after {self.interactive_continue}s")
+                    
+                    print(SHOW_CURSOR, end='', flush=True)
+                    print("\n\n  Auto-resuming...\n")
+                    print("=" * 70)
+                    
                 else:
                     # Unix/Linux/Mac
                     import sys
                     import termios
                     import tty
+                    import select
                     
                     old_settings = termios.tcgetattr(sys.stdin)
                     try:
                         tty.setcbreak(sys.stdin.fileno())
                         start_time = time.time()
-                        while time.time() - start_time < self.interactive_continue:
-                            if select.select([sys.stdin], [], [], 0.1)[0]:
-                                sys.stdin.read(1)  # Clear the keypress
-                                logging.info("User pressed key - resuming")
+                        bar_width = 50
+                        
+                        while True:
+                            elapsed = time.time() - start_time
+                            remaining = self.interactive_continue - elapsed
+                            
+                            if remaining <= 0:
                                 break
-                        else:
-                            logging.info(f"Auto-resuming after {self.interactive_continue}s")
+                            
+                            # Check for keypress
+                            if select.select([sys.stdin], [], [], 0)[0]:
+                                sys.stdin.read(1)  # Clear the keypress
+                                print(SHOW_CURSOR, end='', flush=True)
+                                print("\n  User pressed key - resuming...\n")
+                                print("=" * 70)
+                                return
+                            
+                            # Draw progress bar
+                            progress = elapsed / self.interactive_continue
+                            filled = int(bar_width * progress)
+                            bar = '█' * filled + '░' * (bar_width - filled)
+                            print(f"\r  [{bar}] {remaining:.1f}s  ", end='', flush=True)
+                            
+                            time.sleep(0.1)
+                        
+                        print(SHOW_CURSOR, end='', flush=True)
+                        print("\n\n  Auto-resuming...\n")
+                        print("=" * 70)
+                        
                     finally:
                         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
             else:
                 # Wait for keypress
+                print("  Press Enter to continue...")
+                print()
+                print(SHOW_CURSOR, end='', flush=True)
                 input()
-                logging.info("User pressed Enter - resuming sampling")
-            
-            logging.info(f"{'='*60}\n")
+                print("\n  Resuming sampling...\n")
+                print("=" * 70)
     
     def send_midi_note(self, note: int, velocity: int, channel: int = 0, duration: float = None) -> None:
         """

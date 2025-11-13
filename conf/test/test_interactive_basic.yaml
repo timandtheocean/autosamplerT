@@ -29,8 +29,8 @@ sampling:
 
 interactive_sampling:
   every: 3                  # Pause after every 3 notes
-  continue: 0               # Wait for keypress
-  prompt: "Paused. Press Enter to continue..."
+  continue: 10              # Auto-resume after 10 seconds (to see progress bar)
+  prompt: "Paused. Press Enter to continue or wait 10 seconds..."
 
 # Expected output:
 # Sampling 10 notes total (36-45)
