@@ -60,6 +60,7 @@ class AutoSampler:
         self.midi_config = config.get('midi_interface', {})
         self.sampling_midi_config = config.get('sampling_midi', {})
         self.sampling_config = config.get('sampling', {})
+        self.interactive_config = config.get('interactive_sampling', {})
         
         # MIDI ports
         self.midi_input_port: Optional[mido.ports.BaseInput] = None
@@ -111,6 +112,13 @@ class AutoSampler:
         
         # Test mode flag
         self.test_mode = self.sampling_config.get('test_mode', False)
+        
+        # Interactive sampling settings
+        self.interactive_every = self.interactive_config.get('every', 0)
+        self.interactive_continue = self.interactive_config.get('continue', 0)
+        self.interactive_prompt = self.interactive_config.get('prompt', 
+            "Paused for user intervention. Press Enter to continue...")
+        self.interactive_notes_sampled = 0  # Counter for interactive pauses
         
         # Storage for normalization
         self.recorded_samples: List[Tuple[np.ndarray, Dict]] = []
@@ -190,6 +198,75 @@ class AutoSampler:
         except Exception as e:
             logging.error(f"Audio setup failed: {e}")
             return False
+    
+    def check_interactive_pause(self) -> None:
+        """
+        Check if an interactive pause is needed and handle user interaction.
+        
+        Pauses sampling after every N notes if interactive_sampling is configured.
+        User can either press Enter to continue immediately or wait for auto-resume.
+        """
+        # Check if interactive sampling is enabled and threshold reached
+        if self.interactive_every <= 0:
+            return
+        
+        self.interactive_notes_sampled += 1
+        
+        if self.interactive_notes_sampled % self.interactive_every == 0:
+            # Pause for user intervention
+            logging.info(f"\n{'='*60}")
+            logging.info(f"INTERACTIVE PAUSE: Sampled {self.interactive_notes_sampled} notes")
+            logging.info(f"{'='*60}")
+            
+            # Display prompt
+            print(f"\n{self.interactive_prompt}")
+            
+            # Handle continue mode
+            if self.interactive_continue > 0:
+                # Auto-resume after timeout
+                print(f"Will auto-resume in {self.interactive_continue} seconds...")
+                print("(Press Enter to continue immediately)")
+                
+                import sys
+                import select
+                
+                # Platform-specific input handling
+                if sys.platform == 'win32':
+                    import msvcrt
+                    start_time = time.time()
+                    while time.time() - start_time < self.interactive_continue:
+                        if msvcrt.kbhit():
+                            msvcrt.getch()  # Clear the keypress
+                            logging.info("User pressed key - resuming")
+                            break
+                        time.sleep(0.1)
+                    else:
+                        logging.info(f"Auto-resuming after {self.interactive_continue}s")
+                else:
+                    # Unix/Linux/Mac
+                    import sys
+                    import termios
+                    import tty
+                    
+                    old_settings = termios.tcgetattr(sys.stdin)
+                    try:
+                        tty.setcbreak(sys.stdin.fileno())
+                        start_time = time.time()
+                        while time.time() - start_time < self.interactive_continue:
+                            if select.select([sys.stdin], [], [], 0.1)[0]:
+                                sys.stdin.read(1)  # Clear the keypress
+                                logging.info("User pressed key - resuming")
+                                break
+                        else:
+                            logging.info(f"Auto-resuming after {self.interactive_continue}s")
+                    finally:
+                        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+            else:
+                # Wait for keypress
+                input()
+                logging.info("User pressed Enter - resuming sampling")
+            
+            logging.info(f"{'='*60}\n")
     
     def send_midi_note(self, note: int, velocity: int, channel: int = 0, duration: float = None) -> None:
         """
@@ -753,6 +830,11 @@ class AutoSampler:
                             sample_list.append({'file': str(filepath), **metadata})
                         else:
                             sample_list.append({'audio': audio, 'file': str(filepath), **metadata})
+                    
+                    # Check for interactive pause (after each note across all velocity/RR layers)
+                    # Only check after completing all layers for this note
+                    if rr_layer == self.roundrobin_layers - 1 and vel_layer == self.velocity_layers - 1:
+                        self.check_interactive_pause()
                     
                     # Pause between samples
                     if self.pause_time > 0:

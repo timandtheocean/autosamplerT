@@ -1,0 +1,35 @@
+# Interactive Sampling Test: Casio SK1 Hardware Sampler
+# 
+# Test Case: Hardware sampler with limited MIDI range (32 notes)
+# Use Case: Sample 65 notes (C1-C6) using 32-note hardware sampler
+# Expected: Pause after notes 32, 64, and continue to 96
+#
+# Workflow:
+#   1. Load first 32 samples into SK1
+#   2. Run script - samples notes 32-63
+#   3. Pause: Load next 32 samples into SK1
+#   4. Press Enter - samples notes 64-95
+#   5. Pause: Load final sample into SK1
+#   6. Press Enter - samples note 96
+
+multisample_name: "Test_Interactive_SK1"
+
+sampling:
+  startNote: 32             # C1 (lowest note to sample)
+  endNote: 96               # C6 (highest note to sample)
+  noteInterval: 1           # Chromatic sampling
+  velocities: [100]         # Single velocity layer
+  hold: 2.0                 # Hold time
+  release: 1.0              # Release time
+  pause: 0.3                # Pause between samples
+  test_mode: true           # Enable test mode (no audio recording)
+
+interactive_sampling:
+  every: 32                 # Pause after every 32 notes (SK1 MIDI range)
+  continue: 0               # Wait for keypress (manual bank loading)
+  prompt: "Load next sample bank into SK1 memory and press Enter..."
+
+postprocessing:
+  normalize: true
+  trim_silence: false       # SK1 handles timing
+  auto_loop: false          # SK1 handles looping

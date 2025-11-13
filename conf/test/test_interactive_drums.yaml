@@ -1,0 +1,35 @@
+# Interactive Sampling Test: Acoustic Drum Kit
+#
+# Test Case: Acoustic drums requiring per-note tuning
+# Use Case: Sample 8 drums (kick, snares, toms) with velocity layers
+# Expected: Pause after EVERY note for tuning
+#
+# Workflow:
+#   1. Sample kick drum at 3 velocities
+#   2. Pause: Tune snare to next pitch
+#   3. Sample snare at 3 velocities
+#   4. Pause: Tune tom 1 to next pitch
+#   5. Continue for all 8 drums
+
+multisample_name: "Test_Interactive_Drums"
+
+sampling:
+  startNote: 36             # C2 (kick drum)
+  endNote: 43               # G2 (high tom)
+  noteInterval: 1           # One drum per note
+  velocities: [40, 80, 120] # Soft, medium, loud
+  roundrobin_layers: 2      # 2 hits per velocity
+  hold: 2.0                 # Capture full attack
+  release: 1.5              # Capture ring-out
+  pause: 0.5
+  test_mode: true
+
+interactive_sampling:
+  every: 1                  # Pause after EVERY note (each drum)
+  continue: 0               # Wait for keypress (manual tuning)
+  prompt: "Tune next drum to the displayed pitch, then press Enter..."
+
+postprocessing:
+  sample_normalize: true    # Normalize each drum independently
+  trim_silence: true        # Remove dead air
+  auto_loop: false          # Drums don't loop

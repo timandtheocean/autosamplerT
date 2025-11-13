@@ -1,0 +1,36 @@
+# Interactive Sampling Test: Exotic Instrument (Manual Pitch Control)
+#
+# Test Case: Instrument requiring manual pitch adjustment per note
+# Use Case: Sample 13 notes (C4-C5) of theremin/pitch-CV instrument
+# Expected: Pause after EVERY note for manual pitch adjustment
+#
+# Workflow:
+#   1. Sample C4
+#   2. Pause: Adjust instrument pitch to C#4
+#   3. Sample C#4
+#   4. Pause: Adjust instrument pitch to D4
+#   5. Continue for all 13 notes (chromatic octave)
+
+multisample_name: "Test_Interactive_Exotic"
+
+sampling:
+  startNote: 60             # C4 (middle C)
+  endNote: 72               # C5 (one octave higher)
+  noteInterval: 1           # Chromatic
+  velocities: [100]         # Fixed velocity (no velocity control)
+  roundrobin_layers: 3      # 3 variations per note (timbre variation)
+  hold: 4.0                 # Long sustain
+  release: 2.0              # Natural decay
+  pause: 0.5
+  test_mode: true
+
+interactive_sampling:
+  every: 1                  # Pause after EVERY note
+  continue: 0               # Wait for keypress (manual pitch adjustment)
+  prompt: "Adjust instrument pitch to match next MIDI note, then press Enter..."
+
+postprocessing:
+  patch_normalize: true     # Maintain timbre consistency
+  trim_silence: true        # Remove setup noise
+  auto_loop: true           # Find loop points for sustain
+  loop_min_duration: "50%"  # Minimum loop length

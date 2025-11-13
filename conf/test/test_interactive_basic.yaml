@@ -1,0 +1,38 @@
+# Interactive Sampling Test: Basic Functionality
+#
+# Test Case: Minimal test to verify interactive_sampling works
+# Use Case: Sample 10 notes with pause every 3 notes
+# Expected: Pause after notes 3, 6, 9, complete at 10
+#
+# Workflow:
+#   1. Sample notes 36-38 (3 notes)
+#   2. Pause: Press Enter to continue
+#   3. Sample notes 39-41 (3 notes)
+#   4. Pause: Press Enter to continue
+#   5. Sample notes 42-44 (3 notes)
+#   6. Pause: Press Enter to continue
+#   7. Sample note 45 (1 note)
+#   8. Complete
+
+multisample_name: "Test_Interactive_Basic"
+
+sampling:
+  startNote: 36             # C2
+  endNote: 45               # A2 (10 notes total)
+  noteInterval: 1           # Chromatic
+  velocities: [100]         # Single velocity
+  roundrobin_layers: 1      # No round-robin
+  hold: 1.0                 # Quick test
+  release: 0.5
+  pause: 0.2
+  test_mode: true           # Test mode (no recording)
+
+interactive_sampling:
+  every: 3                  # Pause after every 3 notes
+  continue: 0               # Wait for keypress
+  prompt: "Paused. Press Enter to continue..."
+
+# Expected output:
+# Sampling 10 notes total (36-45)
+# Pause points: after notes 3, 6, 9
+# Total pauses: 3

@@ -154,6 +154,15 @@ def get_arg_parser() -> argparse.ArgumentParser:
     sampling.add_argument('--highest_note', type=int, metavar='NOTE',
                          help='Highest MIDI note for SFZ key mapping (0-127, default: 127)')
 
+    # Interactive sampling options
+    interactive = parser.add_argument_group('interactive', 'Interactive sampling options')
+    interactive.add_argument('--interactive_every', type=int, metavar='N',
+                            help='Pause every N notes for user intervention (e.g., loading samples into hardware sampler)')
+    interactive.add_argument('--interactive_continue', type=float, metavar='SEC',
+                            help='Auto-resume after N seconds (0=wait for keypress, default: 0)')
+    interactive.add_argument('--interactive_prompt', type=str, metavar='MSG',
+                            help='Custom message to display during pause')
+
     # Post-processing options
     postprocessing = parser.add_argument_group('postprocessing', 'Post-processing options (process existing samples)')
     postprocessing.add_argument('--process', type=str, metavar='NAME',
@@ -328,7 +337,7 @@ def main() -> None:
         
         # Merge script config into main config (script overrides config file)
         if script_config:
-            for section in ['audio_interface', 'midi_interface', 'sampling', 'sampling_midi']:
+            for section in ['audio_interface', 'midi_interface', 'sampling', 'sampling_midi', 'interactive_sampling']:
                 if section in script_config:
                     if section not in config:
                         config[section] = {}
@@ -476,6 +485,14 @@ def main() -> None:
         'lowest_note': args.lowest_note,
         'highest_note': args.highest_note
     }, 'sampling')
+    
+    # Interactive sampling arguments
+    if args.interactive_every is not None or args.interactive_continue is not None or args.interactive_prompt is not None:
+        update_config_from_args(config, {
+            'every': args.interactive_every,
+            'continue': args.interactive_continue,
+            'prompt': args.interactive_prompt
+        }, 'interactive_sampling')
 
     # Setup mode
     if args.setup:

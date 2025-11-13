@@ -1,0 +1,36 @@
+# Interactive Sampling Test: Vocal Phrase Sampling
+#
+# Test Case: Vocal sampling with performer preparation time
+# Use Case: Sample 25 notes (C3-C5) with timed breaks for vocalist
+# Expected: Pause every 12 notes (octave), auto-resume after 30s
+#
+# Workflow:
+#   1. Sample C3-B3 (12 notes × 2 velocities = 24 samples)
+#   2. Pause for 30 seconds (vocalist rests)
+#   3. Auto-resume or press Enter to continue
+#   4. Sample C4-B4 (12 notes × 2 velocities = 24 samples)
+#   5. Pause for 30 seconds
+#   6. Sample C5 (1 note × 2 velocities = 2 samples)
+
+multisample_name: "Test_Interactive_Vocals"
+
+sampling:
+  startNote: 48             # C3 (lowest vocal note)
+  endNote: 72               # C5 (highest vocal note)
+  noteInterval: 1           # Chromatic (all semitones)
+  velocities: [60, 100]     # Soft and loud
+  roundrobin_layers: 1      # No round-robin for vocals
+  hold: 4.0                 # Long sustained notes
+  release: 2.0              # Natural decay
+  pause: 1.0                # Breath between notes
+  test_mode: true
+
+interactive_sampling:
+  every: 12                 # Pause after each octave (12 semitones)
+  continue: 30              # Auto-resume after 30 seconds
+  prompt: "Rest and prepare for next phrase. Auto-continues in 30s (or press Enter)..."
+
+postprocessing:
+  patch_normalize: true     # Maintain relative dynamics
+  trim_silence: true        # Remove breath noises at start/end
+  auto_loop: false          # Vocals don't loop

@@ -591,6 +591,196 @@ postprocessing:
 
 **Output:** 20 folders (Patch_000 through Patch_019), 80 samples total (4 notes × 20 patches)
 
+## Interactive Sampling
+
+Interactive sampling pauses the sampling process at regular intervals to allow manual intervention. This is essential for:
+
+- **Hardware samplers** with limited MIDI range (e.g., Casio SK1: 32-note range)
+- **Acoustic instruments** requiring per-note tuning between samples
+- **Vocal recording** where the performer needs preparation time
+- **Exotic instruments** needing manual pitch/timbre adjustment per note
+
+### Configuration
+
+Add the `interactive_sampling` section to your script:
+
+```yaml
+interactive_sampling:
+  every: 32              # Pause after sampling every N notes
+  continue: 0            # 0 = wait for keypress, >0 = auto-resume after N seconds
+  prompt: "Custom message..."  # Optional custom message
+```
+
+### Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `every` | int | 0 (disabled) | Pause after sampling N notes. If 0 or omitted, feature is disabled |
+| `continue` | float | 0 | Resume mode: 0 = wait for keypress, >0 = auto-resume after N seconds |
+| `prompt` | string | Default message | Custom message displayed during pause |
+
+### Use Cases
+
+#### 1. Hardware Sampler with Limited Range (Casio SK1)
+
+The Casio SK1 sampler has only 32-note MIDI range. To sample 65 notes (MIDI 32-96), you must pause 3 times to load new sample banks:
+
+```yaml
+multisample_name: "Synth_via_SK1"
+
+midi_interface:
+  output_port: "SK1 MIDI"
+
+sampling:
+  startNote: 32             # C1
+  endNote: 96               # C6
+  noteInterval: 1           # Chromatic
+  velocities: [100]
+  hold: 3.0
+  release: 1.5
+
+interactive_sampling:
+  every: 32                 # Pause after 32 notes
+  continue: 0               # Wait for keypress
+  prompt: "Load next sample bank into SK1 memory and press Enter..."
+```
+
+**Workflow:**
+1. Record samples into SK1 for notes 32-63 (first bank)
+2. Run script - samples notes 32-63
+3. Pause after note 63: Load second bank into SK1 (notes 64-95)
+4. Press Enter - samples notes 64-95
+5. Pause after note 95: Load third bank into SK1 (note 96)
+6. Press Enter - samples note 96
+7. Complete!
+
+#### 2. Acoustic Drum Kit (Tune Each Drum)
+
+Drums require physical tuning between notes:
+
+```yaml
+multisample_name: "AcousticDrums"
+
+sampling:
+  startNote: 36             # Kick
+  endNote: 67               # High Tom
+  noteInterval: 1
+  velocities: [40, 80, 120]
+  hold: 2.0
+  release: 2.0
+
+interactive_sampling:
+  every: 1                  # Pause after EVERY note
+  continue: 0
+  prompt: "Tune next drum to the pitch shown, then press Enter..."
+```
+
+**Workflow:** Tune each drum between samples, ensuring proper pitch mapping.
+
+#### 3. Vocal Phrase Sampling (Timed Preparation)
+
+Vocalist needs time to prepare for each phrase:
+
+```yaml
+multisample_name: "Choir_Phrases"
+
+sampling:
+  startNote: 48             # C3
+  endNote: 72               # C5
+  noteInterval: 12          # Octave intervals
+  velocities: [60, 100]     # Soft/loud
+  hold: 5.0                 # Long notes
+  release: 2.0
+
+interactive_sampling:
+  every: 12                 # Pause after each octave (12 notes)
+  continue: 30              # Auto-resume in 30 seconds
+  prompt: "Prepare for next phrase (auto-continues in 30s or press Enter)..."
+```
+
+**Workflow:** Vocalist gets 30 seconds rest between phrase groups, can continue earlier if ready.
+
+#### 4. Exotic Instrument (Manual Pitch Adjustment)
+
+Some instruments require manual pitch adjustment per note:
+
+```yaml
+multisample_name: "ThereminSamples"
+
+sampling:
+  startNote: 60             # C4
+  endNote: 72               # C5
+  noteInterval: 1           # Chromatic
+  velocities: [100]
+  hold: 4.0
+  release: 2.0
+
+interactive_sampling:
+  every: 1                  # Pause after every note
+  continue: 0
+  prompt: "Adjust theremin pitch to next note, then press Enter..."
+```
+
+### CLI Arguments
+
+You can also use CLI arguments instead of YAML:
+
+```bash
+# Sample with interactive pauses
+python autosamplerT.py --script my_script.yaml \
+  --interactive_every 32 \
+  --interactive_continue 0 \
+  --interactive_prompt "Load next sample bank and press Enter..."
+
+# Auto-resume after 30 seconds
+python autosamplerT.py --script my_script.yaml \
+  --interactive_every 12 \
+  --interactive_continue 30
+```
+
+### Behavior Details
+
+**Note counting:** Counts TOTAL notes sampled (across all velocity/RR layers):
+- 1 note × 3 velocity layers × 2 RR layers = 6 samples = counted as 1 note
+- Interactive pause triggers based on note count, not sample count
+
+**Pause timing:** Occurs AFTER completing all layers for a note:
+- Samples note 32 with all velocity/RR layers
+- Then pauses if threshold reached
+- User intervenes
+- Resumes with note 33
+
+**Keypress handling:** Platform-specific input detection:
+- Windows: Uses `msvcrt` for non-blocking input
+- Unix/Linux/Mac: Uses `termios` and `select` for non-blocking input
+- Both support immediate continue or timeout
+
+**Progress display:**
+```
+============================================================
+INTERACTIVE PAUSE: Sampled 32 notes
+============================================================
+
+Load next sample bank into SK1 and press Enter...
+
+============================================================
+```
+
+### Best Practices
+
+1. **Test first:** Use `--test_mode` to verify pause points without recording
+2. **Clear prompts:** Write specific instructions for what user should do
+3. **Timing:** Set `continue` to realistic prep time (0 = safest for hardware)
+4. **Checkpoint:** Interactive pauses act as natural progress checkpoints
+5. **Combine features:** Works with velocity layers, RR layers, patch iteration
+
+### Limitations
+
+- Cannot pause mid-note (completes all layers first)
+- Cannot dynamically adjust `every` value during run
+- Windows console may have input quirks - test your setup
+- No progress persistence across script restarts
+
 ## Practical Sampling Workflows
 
 ### 1. Multi-Mode Synthesizer Sampling

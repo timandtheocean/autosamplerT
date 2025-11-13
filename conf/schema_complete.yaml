@@ -241,6 +241,63 @@ sampling:
   test_tone_frequency: 440     # Test tone frequency in Hz
 
 # ==============================================================================
+# INTERACTIVE SAMPLING (Optional)
+# ==============================================================================
+# Pause sampling at intervals for manual intervention
+# Use cases:
+#   - Hardware samplers with limited MIDI range (e.g., Casio SK1: 32 notes)
+#   - Acoustic instruments requiring per-note tuning
+#   - Vocals requiring performer preparation between phrases
+#   - Any scenario requiring human intervention during sampling
+interactive_sampling:
+  # ---------------------------------------------------------------------------
+  # PAUSE INTERVAL
+  # ---------------------------------------------------------------------------
+  every: 32                    # Pause after sampling every N notes
+                               # Example: Sample 96 notes with 32-note hardware:
+                               #   - Pause after note 32 (load new sample bank)
+                               #   - Pause after note 64 (load new sample bank)
+                               #   - Complete at note 96
+  
+  # ---------------------------------------------------------------------------
+  # CONTINUE MODE
+  # ---------------------------------------------------------------------------
+  continue: 0                  # How to resume after pause:
+                               #   0 = Wait for keypress (default)
+                               #   >0 = Auto-resume after N seconds
+                               # Example: continue: 30 = auto-resume in 30s
+  
+  # ---------------------------------------------------------------------------
+  # CUSTOM PROMPT
+  # ---------------------------------------------------------------------------
+  prompt: "Load next sample bank into hardware and press Enter..."
+                               # Custom message displayed during pause
+                               # Default: "Paused for user intervention. Press Enter to continue..."
+  
+  # ---------------------------------------------------------------------------
+  # EXAMPLES BY USE CASE
+  # ---------------------------------------------------------------------------
+  # 1. Casio SK1 (32-note MIDI range sampler)
+  #    every: 32
+  #    continue: 0
+  #    prompt: "Load next sample bank into SK1 and press Enter..."
+  #
+  # 2. Acoustic drum kit (tune each drum between notes)
+  #    every: 1
+  #    continue: 0
+  #    prompt: "Tune next drum and press Enter..."
+  #
+  # 3. Vocal sampling (prepare performer for next phrase)
+  #    every: 12
+  #    continue: 30
+  #    prompt: "Prepare for next phrase (auto-continues in 30s)..."
+  #
+  # 4. Exotic instrument (needs manual pitch adjustment)
+  #    every: 1
+  #    continue: 0
+  #    prompt: "Adjust instrument pitch to next note and press Enter..."
+
+# ==============================================================================
 # POST-PROCESSING OPTIONS
 # ==============================================================================
 postprocessing:
