@@ -9,15 +9,13 @@ Complete guide to MIDI control features in AutosamplerT - enabling advanced samp
 3. [Basic MIDI Control](#basic-midi-control)
 4. [Per-Velocity-Layer Control](#per-velocity-layer-control)
 5. [Per-Round-Robin-Layer Control](#per-round-robin-layer-control)
-6. [Patch Iteration](#patch-iteration)
-7. [Combined Layer Control](#combined-layer-control)
-8. [SysEx Messages](#sysex-messages)
-9. [MIDI Message Delay](#midi-message-delay)
-10. [Practical Use Cases](#practical-use-cases)
-11. [Configuration Reference](#configuration-reference)
-12. [Testing and Verification](#testing-and-verification)
-13. [Tips and Best Practices](#tips-and-best-practices)
-14. [Troubleshooting](#troubleshooting)
+6. [Combined Layer Control](#combined-layer-control)
+7. [SysEx Messages](#sysex-messages)
+8. [MIDI Message Delay](#midi-message-delay)
+9. [Configuration Reference](#configuration-reference)
+10. [Testing and Verification](#testing-and-verification)
+11. [Tips and Best Practices](#tips-and-best-practices)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -318,136 +316,6 @@ sampling_midi:
 
 ---
 
-## Patch Iteration
-
-[NEW] Sample multiple patches automatically with MIDI program changes. Instead of sampling one patch with multiple velocity/round-robin layers, you can sample many patches (e.g., all 128 programs) with the same note configuration.
-
-### Key Features
-- Automatic MIDI program change before each patch
-- Automatic folder and multisample naming
-- Separate SFZ file per patch
-- Progress tracking and error handling
-- Works from both CLI and YAML scripts
-
-### Configuration
-
-```yaml
-name: "Sample All Patches"
-
-# MIDI configuration
-midi_interface:
-  output_port_name: "Prophet 6"
-  cc_messages: {7: 127}  # Full volume
-
-# Sampling configuration
-sampling:
-  note_range_start: 36   # C2
-  note_range_end: 84     # C5
-  note_range_interval: 12  # One note per octave = 4 notes
-  
-  velocity_layers: 1
-  roundrobin_layers: 1
-  
-  hold_time: 8.0
-  release_time: 2.0
-
-# Patch iteration - sample multiple programs
-sampling_midi:
-  patch_iteration:
-    enabled: true
-    program_start: 0      # First program to sample
-    program_end: 19       # Last program to sample (inclusive)
-    auto_naming: true     # Generate names automatically
-    name_template: "Patch"  # Optional: default name prefix
-```
-
-### Automatic Naming
-
-When `auto_naming: true`:
-- **Patch_000** (program 0)
-- **Patch_001** (program 1)
-- **Patch_002** (program 2)
-- ...
-- **Patch_127** (program 127)
-
-Each patch gets:
-- Separate folder: `output/Patch_000/samples/`
-- Separate SFZ: `output/Patch_000/Patch_000.sfz`
-- All samples named: `Patch_000_C2_v127.wav`, etc.
-
-### Execution Flow
-
-```
-Program 0:
-  Send MIDI program change: 0
-  Wait for midi_message_delay
-  Sample notes: 36, 48, 60, 72 (4 notes)
-  Generate SFZ: Patch_000.sfz
-
-Program 1:
-  Send MIDI program change: 1
-  Wait for midi_message_delay
-  Sample notes: 36, 48, 60, 72 (4 notes)
-  Generate SFZ: Patch_001.sfz
-
-... continues through program_end
-```
-
-### CLI Usage
-
-Patch iteration is configured in YAML scripts only (not available as CLI arguments).
-
-```bash
-# Sample patches 0-19
-python autosamplerT.py --script conf/sample_patches.yaml
-
-# With postprocessing
-python autosamplerT.py --script conf/sample_patches.yaml --auto_loop
-```
-
-### Use Cases
-
-**1. Sample All Presets on a Synthesizer**
-```yaml
-sampling_midi:
-  patch_iteration:
-    enabled: true
-    program_start: 0
-    program_end: 127  # All 128 MIDI programs
-    auto_naming: true
-```
-
-**2. Sample Specific Patch Range**
-```yaml
-sampling_midi:
-  patch_iteration:
-    enabled: true
-    program_start: 8    # Bank 1, patches 9-16
-    program_end: 15
-    auto_naming: true
-    name_template: "Bank1"  # Results: Bank1_008, Bank1_009, etc.
-```
-
-**3. Quick Multi-Patch Test**
-```yaml
-sampling_midi:
-  patch_iteration:
-    enabled: true
-    program_start: 0
-    program_end: 3      # Just 4 patches for testing
-```
-
-### Notes
-
-- Patch iteration creates folders automatically (no manual creation needed)
-- Each patch is independent - failure on one patch doesn't stop the others
-- Progress is reported: "Program 5 (6/20)" shows current position
-- Final summary shows success/failure count
-- Works with all audio settings (ASIO, sample rate, bit depth, etc.)
-- Compatible with postprocessing (`--auto_loop`, `--trim_silence`, etc.)
-
----
-
 ## Combined Layer Control
 
 ### Use Case: Filter per Velocity + Patches per Round-Robin
@@ -659,109 +527,6 @@ sampling_midi:
 **Timing:**
 ```
 Send Program Change → Wait 150ms → Send CC → Wait 150ms → Note-on
-```
-
----
-
-## Practical Use Cases
-
-### 1. Multi-Mode Synthesizer Sampling
-
-Sample all oscillator modes of a synth:
-
-```yaml
-sampling_midi:
-  roundrobin_layers:
-    - layer: 1
-      cc: [{controller: 70, value: 0}]      # Waveform: Sine
-    - layer: 2
-      cc: [{controller: 70, value: 42}]     # Waveform: Triangle
-    - layer: 3
-      cc: [{controller: 70, value: 84}]     # Waveform: Sawtooth
-    - layer: 4
-      cc: [{controller: 70, value: 127}]    # Waveform: Square
-```
-
-### 2. Modulation Wheel Layers
-
-Sample different modulation wheel positions:
-
-```yaml
-sampling_midi:
-  velocity_layers:
-    - velocity: 20
-      cc: [{controller: 1, value: 0}]       # Mod wheel: 0%
-    - velocity: 50
-      cc: [{controller: 1, value: 32}]      # Mod wheel: 25%
-    - velocity: 80
-      cc: [{controller: 1, value: 64}]      # Mod wheel: 50%
-    - velocity: 110
-      cc: [{controller: 1, value: 96}]      # Mod wheel: 75%
-    - velocity: 127
-      cc: [{controller: 1, value: 127}]     # Mod wheel: 100%
-```
-
-### 3. Multi-Timbral Setup
-
-Sample different sounds using different MIDI channels:
-
-```yaml
-sampling_midi:
-  roundrobin_layers:
-    - layer: 1
-      midi_channel: 1         # Channel 1
-      program_change: 0
-    - layer: 2
-      midi_channel: 2         # Channel 2
-      program_change: 8
-    - layer: 3
-      midi_channel: 3         # Channel 3
-      program_change: 16
-```
-
-### 4. Expression + Filter Layers
-
-Combine expression and filter for natural dynamics:
-
-```yaml
-sampling_midi:
-  velocity_layers:
-    - velocity: 40            # ppp
-      cc:
-        - {controller: 11, value: 30}     # Expression
-        - {controller: 74, value: 20}     # Filter
-    
-    - velocity: 80            # mf
-      cc:
-        - {controller: 11, value: 80}
-        - {controller: 74, value: 80}
-    
-    - velocity: 120           # fff
-      cc:
-        - {controller: 11, value: 127}
-        - {controller: 74, value: 127}
-```
-
-### 5. Yamaha DX7 Algorithm Sweep
-
-```yaml
-sampling_midi:
-  midi_message_delay: 0.2
-  
-  roundrobin_layers:
-    - layer: 1
-      sysex:
-        - header: "43 10 7F"
-          controller: "10"      # Algorithm
-          value: 0              # Algorithm 0
-    - layer: 2
-      sysex:
-        - controller: "10"
-          value: 10             # Algorithm 10
-    - layer: 3
-      sysex:
-        - controller: "10"
-          value: 20             # Algorithm 20
 ```
 
 ---
@@ -1115,7 +880,7 @@ MIDI control works seamlessly with:
 ## Related Documentation
 
 - [Setup & Configuration](SETUP.md) - MIDI device configuration
-- [Scripting System](SCRIPTING.md) - YAML script structure
+- [Scripting System](SCRIPTING.md) - YAML script structure, patch iteration, practical workflows
 - [CLI Documentation](CLI.md) - Command-line interface
 - [Sampling Engine](SAMPLING.md) - Recording parameters
 
@@ -1154,4 +919,4 @@ duration = total_samples × (hold + release + pause)
 
 ---
 
-*Last updated: November 11, 2025*
+*Last updated: November 13, 2025*
