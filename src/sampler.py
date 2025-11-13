@@ -383,12 +383,18 @@ class AutoSampler:
         # Test mode flag
         self.test_mode = self.sampling_config.get('test_mode', False)
         
-        # Interactive sampling settings
-        self.interactive_every = self.interactive_config.get('every', 0)
-        self.interactive_continue = self.interactive_config.get('continue', 0)
+        # Interactive sampling settings (with backward compatibility)
+        self.interactive_pause_interval = self.interactive_config.get('pause_interval', 
+                                           self.interactive_config.get('every', 0))
+        self.interactive_auto_resume = self.interactive_config.get('auto_resume',
+                                        self.interactive_config.get('continue', 0))
         self.interactive_prompt = self.interactive_config.get('prompt', 
             "Paused for user intervention. Press Enter to continue...")
         self.interactive_notes_sampled = 0  # Counter for interactive pauses
+        
+        # MIDI range mapping for limited-key hardware (SK-1, etc.)
+        self.interactive_midi_range = self.interactive_config.get('midi_range', None)
+        self.interactive_pause_after_range = self.interactive_config.get('pause_after_range', False)
         
         # Storage for normalization
         self.recorded_samples: List[Tuple[np.ndarray, Dict]] = []
@@ -480,24 +486,24 @@ class AutoSampler:
             display: SamplingDisplay instance to show pause status on main screen
         """
         # Check if interactive sampling is enabled and threshold reached
-        if self.interactive_every <= 0:
+        if self.interactive_pause_interval <= 0:
             return
         
         self.interactive_notes_sampled += 1
         
-        if self.interactive_notes_sampled % self.interactive_every == 0:
+        if self.interactive_notes_sampled % self.interactive_pause_interval == 0:
             import sys
             
             # Build pause message
             total_samples = self.interactive_notes_sampled * self.velocity_layers * self.roundrobin_layers
             message = f"{self.interactive_prompt} (Press Enter to continue"
-            if self.interactive_continue > 0:
-                message += f" or wait {self.interactive_continue:.0f}s)"
+            if self.interactive_auto_resume > 0:
+                message += f" or wait {self.interactive_auto_resume:.0f}s)"
             else:
                 message += ")"
             
-            # Handle continue mode
-            if self.interactive_continue > 0:
+            # Handle auto-resume mode
+            if self.interactive_auto_resume > 0:
                 # Auto-resume after timeout with progress bar on main display
                 if display:
                     # Platform-specific input handling with progress bar
@@ -508,7 +514,7 @@ class AutoSampler:
                         
                         while True:
                             elapsed = time.time() - start_time
-                            remaining = self.interactive_continue - elapsed
+                            remaining = self.interactive_auto_resume - elapsed
                             
                             if remaining <= 0:
                                 break
@@ -522,7 +528,7 @@ class AutoSampler:
                             
                             # Update display only every 0.5 seconds to reduce flicker
                             if elapsed - last_update >= 0.5:
-                                progress = elapsed / self.interactive_continue
+                                progress = elapsed / self.interactive_auto_resume
                                 display.set_pause_state(True, message, progress, remaining)
                                 last_update = elapsed
                             
@@ -545,7 +551,7 @@ class AutoSampler:
                             
                             while True:
                                 elapsed = time.time() - start_time
-                                remaining = self.interactive_continue - elapsed
+                                remaining = self.interactive_auto_resume - elapsed
                                 
                                 if remaining <= 0:
                                     break
@@ -559,7 +565,7 @@ class AutoSampler:
                                 
                                 # Update display only every 0.5 seconds to reduce flicker
                                 if elapsed - last_update >= 0.5:
-                                    progress = elapsed / self.interactive_continue
+                                    progress = elapsed / self.interactive_auto_resume
                                     display.set_pause_state(True, message, progress, remaining)
                                     last_update = elapsed
                                 
@@ -573,7 +579,7 @@ class AutoSampler:
                 else:
                     # Fallback without display (shouldn't happen)
                     logging.warning("Interactive pause without display - using simple wait")
-                    time.sleep(self.interactive_continue)
+                    time.sleep(self.interactive_auto_resume)
             else:
                 # Wait for keypress - show on main display
                 if display:
@@ -901,31 +907,48 @@ class AutoSampler:
             logging.warning(f"Failed to add RIFF metadata: {e}")
     
     def sample_note(self, note: int, velocity: int, channel: int = 0, 
-                    rr_index: int = 0) -> Optional[np.ndarray]:
+                    rr_index: int = 0, midi_note: Optional[int] = None) -> Optional[np.ndarray]:
         """
         Sample a single note: send MIDI, record audio, process.
         
         Args:
-            note: MIDI note number
+            note: SFZ note number (used for filenames, metadata, and SFZ mapping)
             velocity: MIDI velocity
             channel: MIDI channel
             rr_index: Round-robin layer index
+            midi_note: MIDI note to send (if different from note due to MIDI range mapping)
             
         Returns:
             Processed audio array or None
         """
+        # Use midi_note if provided, otherwise use note (1:1 mapping)
+        if midi_note is None:
+            midi_note = note
+        
         # Log with simplified format as requested
         note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-        octave = (note // 12) - 1
-        note_name = note_names[note % 12]
-        logging.info(f"Sampling: Note={note_name}{octave} ({note}), Vel={velocity}, RR={rr_index}, "
-                    f"Hold={self.hold_time}s, Release={self.release_time}s, Pause={self.pause_time}s")
+        
+        # Calculate note info for display
+        sfz_octave = (note // 12) - 1
+        sfz_note_name = note_names[note % 12]
+        midi_octave = (midi_note // 12) - 1
+        midi_note_name = note_names[midi_note % 12]
+        
+        # Log with MIDI mapping info if different
+        if midi_note != note:
+            logging.info(f"Sampling: MIDI={midi_note_name}{midi_octave} ({midi_note}) "
+                        f"-> SFZ={sfz_note_name}{sfz_octave} ({note}), "
+                        f"Vel={velocity}, RR={rr_index}, "
+                        f"Hold={self.hold_time}s, Release={self.release_time}s, Pause={self.pause_time}s")
+        else:
+            logging.info(f"Sampling: Note={sfz_note_name}{sfz_octave} ({note}), Vel={velocity}, RR={rr_index}, "
+                        f"Hold={self.hold_time}s, Release={self.release_time}s, Pause={self.pause_time}s")
         
         # Calculate total recording duration
         total_duration = self.hold_time + self.release_time
         
-        # Send MIDI note on
-        self.send_midi_note(note, velocity, channel)
+        # Send MIDI note on (using mapped MIDI note)
+        self.send_midi_note(midi_note, velocity, channel)
         
         # Check if we're using ASIO (ASIO doesn't work from threads)
         device_info = sd.query_devices(self.input_device) if self.input_device is not None else None
@@ -954,7 +977,7 @@ class AutoSampler:
                 
                 # Send note-off after recording completes (note was already released)
                 # This is OK because we record the full duration anyway
-                note_off = mido.Message('note_off', note=note, velocity=0, channel=channel)
+                note_off = mido.Message('note_off', note=midi_note, velocity=0, channel=channel)
                 if self.midi_output_port:
                     self.midi_output_port.send(note_off)
             else:
@@ -965,7 +988,7 @@ class AutoSampler:
                 
                 # Wait for hold time, then send note off
                 time.sleep(self.hold_time)
-                note_off = mido.Message('note_off', note=note, velocity=0, channel=channel)
+                note_off = mido.Message('note_off', note=midi_note, velocity=0, channel=channel)
                 if self.midi_output_port:
                     self.midi_output_port.send(note_off)
                 
@@ -1061,8 +1084,8 @@ class AutoSampler:
         Sample a range of notes with velocity layers and round-robin.
         
         Args:
-            start_note: Starting MIDI note number
-            end_note: Ending MIDI note number (inclusive)
+            start_note: Starting MIDI note number (SFZ range start)
+            end_note: Ending MIDI note number (SFZ range end, inclusive)
             interval: Note interval (1=chromatic, 2=whole tone, etc.)
             channel: MIDI channel
             
@@ -1071,9 +1094,28 @@ class AutoSampler:
         """
         sample_list = []
         
-        # Calculate total notes
+        # Calculate total notes (SFZ notes to sample)
         all_notes = list(range(start_note, end_note + 1, interval))
         total_notes = len(all_notes)
+        
+        # Check if MIDI range mapping is enabled
+        midi_range_enabled = False
+        midi_range_start = start_note
+        midi_range_end = end_note
+        midi_range_size = 0
+        
+        if self.interactive_midi_range:
+            midi_range_start = self.interactive_midi_range.get('start', start_note)
+            midi_range_end = self.interactive_midi_range.get('end', end_note)
+            midi_range_size = midi_range_end - midi_range_start + 1
+            
+            # Enable MIDI mapping if MIDI range is smaller than SFZ range
+            if midi_range_size < total_notes:
+                midi_range_enabled = True
+                logging.info(f"MIDI range mapping enabled: MIDI {midi_range_start}-{midi_range_end} "
+                           f"({midi_range_size} notes) -> SFZ {start_note}-{end_note} ({total_notes} notes)")
+                logging.info(f"MIDI range will repeat {total_notes // midi_range_size} times "
+                           f"(+{total_notes % midi_range_size} extra notes)")
         
         # Initialize display with log handler
         display = SamplingDisplay(
@@ -1142,18 +1184,40 @@ class AutoSampler:
                         else:
                             note_channel = channel
                         
-                        # Get note name for display
-                        note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-                        octave = (note // 12) - 1
-                        note_name = note_names[note % 12] + str(octave)
+                        # Calculate MIDI note to send (may be different from SFZ note if MIDI range mapping is enabled)
+                        midi_note_to_send = note
+                        if midi_range_enabled:
+                            # Map SFZ note index to MIDI range
+                            # Example: SFZ notes 36-67 (32 notes) -> MIDI 36-67
+                            #          SFZ notes 68-99 (32 notes) -> MIDI 36-67 (repeated)
+                            notes_into_range = note_idx % midi_range_size
+                            midi_note_to_send = midi_range_start + notes_into_range
                         
-                        # Update display for sampling
-                        midi_msgs.append(f"Note ON: {note_name} (MIDI {note}), Vel={velocity} (Layer {vel_layer+1}/{self.velocity_layers}), RR={rr_layer+1}/{self.roundrobin_layers}, Ch={note_channel}")
+                        # Get note names for display
+                        note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+                        sfz_octave = (note // 12) - 1
+                        sfz_note_name = note_names[note % 12] + str(sfz_octave)
+                        
+                        # Build MIDI message display
+                        if midi_range_enabled and midi_note_to_send != note:
+                            midi_octave = (midi_note_to_send // 12) - 1
+                            midi_note_name = note_names[midi_note_to_send % 12] + str(midi_octave)
+                            midi_msgs.append(f"Note ON: MIDI {midi_note_name} ({midi_note_to_send}) -> SFZ {sfz_note_name} ({note}), "
+                                           f"Vel={velocity} (Layer {vel_layer+1}/{self.velocity_layers}), "
+                                           f"RR={rr_layer+1}/{self.roundrobin_layers}, Ch={note_channel}")
+                        else:
+                            midi_msgs.append(f"Note ON: {sfz_note_name} (MIDI {note}), "
+                                           f"Vel={velocity} (Layer {vel_layer+1}/{self.velocity_layers}), "
+                                           f"RR={rr_layer+1}/{self.roundrobin_layers}, Ch={note_channel}")
+                        
                         display.update(note, velocity, rr_layer, vel_layer, 
                                      f"Recording ({self.hold_time + self.release_time:.1f}s)", midi_msgs)
                         
-                        # Sample the note
-                        audio = self.sample_note(note, velocity, note_channel, rr_layer)
+                        # Sample the note (pass MIDI note if different)
+                        if midi_range_enabled and midi_note_to_send != note:
+                            audio = self.sample_note(note, velocity, note_channel, rr_layer, midi_note=midi_note_to_send)
+                        else:
+                            audio = self.sample_note(note, velocity, note_channel, rr_layer)
                         
                         # Update display for processing
                         display.update(note, velocity, rr_layer, vel_layer, "Processing", midi_msgs)
@@ -1193,7 +1257,79 @@ class AutoSampler:
                         # Only check after completing all layers for this note
                         if rr_layer == self.roundrobin_layers - 1 and vel_layer == self.velocity_layers - 1:
                             display.increment_note()
-                            self.check_interactive_pause(display)
+                            
+                            # Check for MIDI range cycle completion pause
+                            if (midi_range_enabled and self.interactive_pause_after_range and 
+                                (note_idx + 1) % midi_range_size == 0 and 
+                                (note_idx + 1) < total_notes):
+                                # Pause after completing a full MIDI range cycle
+                                logging.info(f"Completed MIDI range cycle ({midi_range_size} notes sampled)")
+                                import sys
+                                message = f"{self.interactive_prompt} (MIDI range cycle complete - press Enter to continue"
+                                if self.interactive_auto_resume > 0:
+                                    message += f" or wait {self.interactive_auto_resume:.0f}s)"
+                                else:
+                                    message += ")"
+                                
+                                if self.interactive_auto_resume > 0:
+                                    # Auto-resume pause with countdown
+                                    if display:
+                                        import time as time_module
+                                        if sys.platform == 'win32':
+                                            import msvcrt
+                                            start_time = time_module.time()
+                                            last_update = 0
+                                            while True:
+                                                elapsed = time_module.time() - start_time
+                                                remaining = self.interactive_auto_resume - elapsed
+                                                if remaining <= 0:
+                                                    break
+                                                if msvcrt.kbhit():
+                                                    msvcrt.getch()
+                                                    display.set_pause_state(False)
+                                                    logging.info("User pressed key - resuming...")
+                                                    break
+                                                if elapsed - last_update >= 0.5:
+                                                    progress = elapsed / self.interactive_auto_resume
+                                                    display.set_pause_state(True, message, progress, remaining)
+                                                    last_update = elapsed
+                                                time_module.sleep(0.1)
+                                            display.set_pause_state(False)
+                                        else:
+                                            import termios, tty, select
+                                            old_settings = termios.tcgetattr(sys.stdin)
+                                            try:
+                                                tty.setcbreak(sys.stdin.fileno())
+                                                start_time = time_module.time()
+                                                last_update = 0
+                                                while True:
+                                                    elapsed = time_module.time() - start_time
+                                                    remaining = self.interactive_auto_resume - elapsed
+                                                    if remaining <= 0:
+                                                        break
+                                                    if select.select([sys.stdin], [], [], 0)[0]:
+                                                        sys.stdin.read(1)
+                                                        display.set_pause_state(False)
+                                                        logging.info("User pressed key - resuming...")
+                                                        break
+                                                    if elapsed - last_update >= 0.5:
+                                                        progress = elapsed / self.interactive_auto_resume
+                                                        display.set_pause_state(True, message, progress, remaining)
+                                                        last_update = elapsed
+                                                    time_module.sleep(0.1)
+                                                display.set_pause_state(False)
+                                            finally:
+                                                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+                                else:
+                                    # Wait for Enter keypress
+                                    if display:
+                                        display.set_pause_state(True, message, 0.0, 0.0)
+                                        input()
+                                        display.set_pause_state(False)
+                                        logging.info("User pressed Enter - resuming...")
+                            else:
+                                # Standard pause_interval check
+                                self.check_interactive_pause(display)
                         
                         # Pause between samples
                         if self.pause_time > 0:
@@ -1557,10 +1693,11 @@ class AutoSampler:
             if not self.setup_midi():
                 logging.warning("MIDI setup failed - continuing without MIDI")
             
-            # Parse note range - support both formats:
-            # 1. midi_interface.note_range dict with start/end/interval keys
-            # 2. sampling.note_range_start/end/interval individual keys
-            note_range = self.midi_config.get('note_range', {})
+            # Parse note range - support multiple formats:
+            # 1. sampling_midi.note_range dict (new preferred location)
+            # 2. midi_interface.note_range dict (legacy)
+            # 3. sampling.note_range_start/end/interval individual keys (legacy)
+            note_range = self.sampling_midi_config.get('note_range', self.midi_config.get('note_range', {}))
             if isinstance(note_range, str):
                 try:
                     note_range = json.loads(note_range)

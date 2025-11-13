@@ -10,105 +10,77 @@ A cross-platform program that samples hardware synthesizers by sending MIDI note
 
 
 
-## FeaturesThis is the initial commit and development just started. 
-
-things are probably not fully working.
+## Features
 
 ### Audio Configuration
-
-- Select audio device, bit depth (16/24/32), and sample rate## Features
-
+- Select audio device, bit depth (16/24/32-bit), and sample rate (44.1kHz, 48kHz, 96kHz, etc.)
 - Support for mono (left/right channel selection) and stereo inputs
-
-- ASIO multi-channel support: Select specific stereo pairs on multi-channel interfaces (Ch A, Ch B, etc.)### Audio Configuration
-
-- ASIO, WASAPI, MME, WDM-KS, and DirectSound audio APIs supported- Select audio device, bit depth (16/24/32), and sample rate
-
-- Audio latency compensation- Support for mono (left/right channel selection) and stereo inputs
-
-- Input gain control- **ASIO multi-channel support**: Select specific stereo pairs on multi-channel interfaces (Ch A, Ch B, etc.)
-
-- Built-in silence detection for automatic trimming- ASIO, WASAPI, MME, WDM-KS, and DirectSound audio APIs supported
-
+- **ASIO multi-channel support**: Select specific stereo pairs on multi-channel interfaces (Ch A, Ch B, etc.)
+- ASIO, WASAPI, MME, WDM-KS, and DirectSound audio APIs supported (Windows)
+- JACK, ALSA support (Linux)
+- CoreAudio support (macOS)
 - Audio latency compensation
+- Input gain control
+- Built-in silence detection for automatic trimming
 
-### MIDI Configuration- Input gain control
-
-- MIDI input for testing and audition- Built-in silence detection for automatic trimming
-
+### MIDI Configuration
+- MIDI input for testing and audition
 - MIDI output for playback during sampling
-
-- Support for CC (7-bit), CC14 (14-bit), NRPN, Program Change, and SysEx messages### MIDI Configuration
-
-- Per-layer MIDI control (velocity and round-robin layers)- MIDI input for testing and audition
-
-- Configurable message delays- MIDI output for playback during sampling
-
-- Multiple MIDI channels for capturing multiple instruments- Support for SysEx, Program Change, and CC messages
-
-- MIDI latency adjustment for sample start correction- Multiple MIDI channels for capturing multiple instruments
-
+- **CC (7-bit)**: Standard Control Change messages (0-127)
+- **CC14 (14-bit)**: High-resolution Control Change messages (0-16383)
+- **NRPN**: Non-Registered Parameter Number messages
+- **Program Change**: Switch patches/programs (0-127)
+- **SysEx**: System Exclusive messages (hex format)
+- **Per-layer MIDI control**: Different MIDI messages per velocity/round-robin layer
+- Configurable MIDI message delays
+- Multiple MIDI channels for capturing multiple instruments
 - MIDI latency adjustment for sample start correction
 
 ### Sampling Options
+- Configurable note hold time, release time, and pause between samples
+- Note range and interval (chromatic, whole-tone, octaves, etc.)
+- **Multiple velocity layers** with automatic logarithmic distribution or custom split points
+- **Velocity minimum**: Start velocity distribution from higher values (e.g., skip very soft layers)
+- **Multiple round-robin layers** (up to 4+ variations per note/velocity)
+- **Interactive sampling**: Pause at intervals for manual intervention
+  - Fixed interval pausing (every N notes)
+  - **MIDI range mapping**: Repeat limited MIDI range across wider SFZ range (for hardware samplers with limited keys)
+  - Auto-resume with countdown timer or wait for keypress
+  - Perfect for: Casio SK-1, Akai S950, acoustic instruments, vocals
+- **Patch iteration**: Automatically sample multiple patches with program changes
+- Test mode for quick setup verification without recording
+- Pre-sampling summary with sample count and timing estimates
 
-- Configurable note hold time, release time, and pause between samples### Sampling Options
+### Output & Export Formats
+- **SFZ format**: Native format, always created with velocity layers and round-robin support
+- **Waldorf QPAT**: Export to Waldorf Quantum/Iridium format (SD card, internal, or USB storage)
+- **Ableton Live**: Planned
+- **Logic Pro EXS24**: Planned
+- **Kontakt SXT**: Planned
+- WAV file export with metadata (MIDI note, velocity, channel, loop points in RIFF chunks)
+- Customizable sample naming and folder organization
+- Optional JSON sidecar files for debugging (disabled by default)
 
-- Note range and interval (chromatic, whole-tone, octaves, etc.)- Configurable note hold time
-
-- Multiple velocity layers with automatic logarithmic distribution or custom split points- Configurable release time
-
-- Multiple round-robin layers- Pause between samples
-
-- Test mode for quick setup verification without recording- Note range and interval (chromatic, whole-tone, etc.)
-
-- Pre-sampling summary with sample count and timing estimates- Multiple velocity layers
-
-- Multiple round-robin layers
-
-### Output & Export Formats- Test mode for quick setup verification
-
-- **SFZ format**: Native format, always created
-
-- **Waldorf QPAT**: Export to Waldorf Quantum/Iridium format (SD card, internal, or USB)### Output
-
-- **Ableton Live**: Planned- WAV file export with metadata (note, velocity, MIDI channel in RIFF chunk)
-
-- **Logic Pro EXS24**: Planned- SFZ mapping file generation with velocity layers and round-robin support
-
-- **Kontakt SXT**: Planned- Customizable sample naming
-
-- WAV file export with metadata (note, velocity, MIDI channel in RIFF chunk)
-
-- Customizable sample naming and folder organization### Postprocessing
-
-- Patch normalize: automatically gain all samples to consistent peak level
-
-### Post-Processing- Sample normalize: gain each sample to maximum volume independently
-
-- **Patch normalize**: Gain all samples to consistent peak level (maintains relative dynamics)- Silence trimming: remove silence from start/end of samples
-
-- **Sample normalize**: Gain each sample to maximum volume independently- DC offset removal: remove DC bias from recordings
-
-- **Silence trimming**: Remove silence from start/end of samples- Auto-loop detection: find and set loop points using autocorrelation algorithm
-
-- **DC offset removal**: Remove DC bias from recordings  - Zero-crossing detection for smooth, click-free loop points
-
-- **Auto-loop detection**: Find and set loop points using autocorrelation algorithm  - Automatic loop detection or manual start/end time specification
-
-  - Zero-crossing detection for smooth, click-free loop points  - Configurable minimum loop duration (percentage or seconds: `55%` or `8.5`)
-
-  - Automatic loop detection or manual start/end time specification  - Loop points stored in WAV RIFF 'smpl' chunk (sampler handles crossfading)
-
-  - Configurable minimum loop duration (percentage or seconds: `55%` or `8.5`)- Bit depth conversion: convert between 16/24/32-bit with optional dithering
-
-  - Loop points stored in WAV RIFF 'smpl' chunk (sampler handles crossfading)- Backup creation: automatically backup samples before processing
-
-- **Bit depth conversion**: Convert between 16/24/32-bit with optional dithering- Debug mode: optional JSON sidecar files for detailed metadata (disabled by default)
-
+### Post-Processing
+- **Patch normalize**: Gain all samples to consistent peak level (maintains relative dynamics)
+- **Sample normalize**: Gain each sample to maximum volume independently (destroys dynamics)
+- **Silence trimming**: Remove silence from start/end of samples with configurable threshold
+- **DC offset removal**: Remove DC bias from recordings
+- **Auto-loop detection**: Find and set loop points using autocorrelation algorithm
+  - Zero-crossing detection for smooth, click-free loop points
+  - Automatic loop detection or manual start/end time specification
+  - Configurable minimum loop duration (percentage or absolute: `55%` or `8.5` seconds)
+  - Loop points stored in WAV RIFF 'smpl' chunk (sampler handles crossfading)
+- **Bit depth conversion**: Convert between 16/24/32-bit with optional dithering
 - **Backup creation**: Automatically backup samples before processing
+- **Debug mode**: Optional JSON sidecar files for detailed metadata
 
-- **Debug mode**: Optional JSON sidecar files for detailed metadata (disabled by default)## Installation
+### Scripting & Automation
+- **YAML-based scripting system**: Define complete sampling workflows in human-readable format
+- **Command-line interface**: Full CLI support for automation and batch processing
+- **Config file**: Store audio/MIDI device settings separately from scripts
+- **Script templates**: Pre-made templates for common workflows
+- **Test scripts**: Comprehensive test suite in `conf/test/` directory## Installation
 
 
 

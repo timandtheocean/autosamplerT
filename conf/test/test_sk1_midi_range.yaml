@@ -1,0 +1,44 @@
+# Test SK-1 MIDI Range Mapping
+# Simulates sampling a 64-note range using a hardware sampler with only 32 keys
+# AutosamplerT will send MIDI notes 36-67 twice, mapping to SFZ notes 36-99
+
+audio_interface:
+  samplerate: 44100
+  bitdepth: 24
+  mono_stereo: stereo
+
+midi_interface:
+  midi_output_name: "MIDI OUT"
+
+sampling_midi:
+  # Total range to sample (64 notes)
+  note_range: {start: 36, end: 99, interval: 1}
+  velocity_layers: 1
+  roundrobin_layers: 1
+
+# Interactive sampling with MIDI range mapping
+interactive_sampling:
+  # Hardware limitation: SK-1 has only 32 keys (MIDI notes 36-67)
+  midi_range: {start: 36, end: 67}  # 32 MIDI keys available
+  
+  # Pause after each MIDI range cycle for manual transpose adjustment
+  pause_after_range: true
+  auto_resume: 0  # Wait for Enter (user needs time to adjust SK-1 octave)
+  
+  prompt: "Adjust SK-1 octave/transpose up, then press Enter to continue..."
+
+sampling:
+  hold_time: 1.5
+  release_time: 1.0
+  pause_time: 0.3
+  sample_name: "SK1_Sample"
+  multisample_name: "SK1_Test"
+  test_mode: true  # Set to false for actual sampling
+  output_format: "sfz"
+  output_folder: "./output"
+
+# Expected behavior:
+# - Cycle 1: Samples MIDI 36-67 (C1-G3) → Records as SFZ 36-67
+# - PAUSE: "Adjust SK-1 octave/transpose up, then press Enter..."
+# - Cycle 2: Samples MIDI 36-67 (C1-G3) → Records as SFZ 68-99 (E3-D#5)
+# - Done: 64 samples total using only 32 MIDI keys

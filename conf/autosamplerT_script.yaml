@@ -81,3 +81,16 @@ sampling:
   output_folder: "./output"
   lowest_note: 0
   highest_note: 127
+
+# Interactive sampling - pause during sampling for manual adjustments
+interactive_sampling:
+  # Fixed interval pausing (pause every N notes)
+  pause_interval: 0  # Pause every N notes (0 = disabled, was: 'every')
+  auto_resume: 0  # Auto-resume after N seconds (0 = wait for Enter, was: 'continue')
+  
+  # MIDI range mapping for limited-key hardware (e.g., SK-1 with 32 keys)
+  # If midi_range is smaller than note_range, MIDI notes will repeat
+  midi_range: null  # {start: 36, end: 67} - MIDI notes device can play
+  pause_after_range: false  # Pause after each MIDI range cycle
+  
+  prompt: "Paused for user intervention. Press Enter to continue..."

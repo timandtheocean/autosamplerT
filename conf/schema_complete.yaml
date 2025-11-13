@@ -245,57 +245,115 @@ sampling:
 # ==============================================================================
 # Pause sampling at intervals for manual intervention
 # Use cases:
-#   - Hardware samplers with limited MIDI range (e.g., Casio SK1: 32 notes)
+#   - Hardware samplers with limited MIDI range (e.g., Casio SK-1: 32 keys)
+#   - MIDI range mapping: repeat small MIDI range across wider SFZ range
 #   - Acoustic instruments requiring per-note tuning
 #   - Vocals requiring performer preparation between phrases
 #   - Any scenario requiring human intervention during sampling
 interactive_sampling:
   # ---------------------------------------------------------------------------
-  # PAUSE INTERVAL
+  # PAUSE INTERVAL (Fixed note count)
   # ---------------------------------------------------------------------------
-  every: 32                    # Pause after sampling every N notes
-                               # Example: Sample 96 notes with 32-note hardware:
-                               #   - Pause after note 32 (load new sample bank)
-                               #   - Pause after note 64 (load new sample bank)
+  pause_interval: 32           # Pause after sampling every N notes (0 = disabled)
+                               # RENAMED from 'every' (backward compatible)
+                               # Example: Sample 96 notes, pause every 32:
+                               #   - Pause after note 32
+                               #   - Pause after note 64
                                #   - Complete at note 96
   
+  # Legacy parameter (still works, use pause_interval instead)
+  # every: 32
+  
   # ---------------------------------------------------------------------------
-  # CONTINUE MODE
+  # AUTO-RESUME MODE
   # ---------------------------------------------------------------------------
-  continue: 0                  # How to resume after pause:
-                               #   0 = Wait for keypress (default)
+  auto_resume: 0               # How to resume after pause:
+                               #   0 = Wait for Enter keypress (default)
                                #   >0 = Auto-resume after N seconds
-                               # Example: continue: 30 = auto-resume in 30s
+                               # RENAMED from 'continue' (backward compatible)
+                               # Example: auto_resume: 30 = auto-resume in 30s
+  
+  # Legacy parameter (still works, use auto_resume instead)
+  # continue: 0
+  
+  # ---------------------------------------------------------------------------
+  # MIDI RANGE MAPPING (for limited-key hardware)
+  # ---------------------------------------------------------------------------
+  # Define the MIDI note range your hardware can play
+  # If smaller than note_range, AutosamplerT will automatically:
+  #   1. Repeat the MIDI range to cover full SFZ range
+  #   2. Map: SFZ note X -> MIDI note (X % midi_range_size)
+  #   3. Optionally pause after each MIDI range cycle
+  
+  midi_range:                  # MIDI notes hardware can play
+    start: 36                  # Lowest MIDI note (e.g., C1)
+    end: 67                    # Highest MIDI note (e.g., G3)
+                               # Example: 32 keys for Casio SK-1
+  
+  pause_after_range: true      # Pause after each complete MIDI range cycle
+                               # Use with midi_range for hardware adjustment
+                               # (transpose, octave shift, etc.)
   
   # ---------------------------------------------------------------------------
   # CUSTOM PROMPT
   # ---------------------------------------------------------------------------
-  prompt: "Load next sample bank into hardware and press Enter..."
+  prompt: "Adjust SK-1 octave/transpose up, then press Enter..."
                                # Custom message displayed during pause
                                # Default: "Paused for user intervention. Press Enter to continue..."
   
   # ---------------------------------------------------------------------------
   # EXAMPLES BY USE CASE
   # ---------------------------------------------------------------------------
-  # 1. Casio SK1 (32-note MIDI range sampler)
-  #    every: 32
-  #    continue: 0
-  #    prompt: "Load next sample bank into SK1 and press Enter..."
+  # 1. Casio SK-1 (32 MIDI keys, sample 64 notes)
+  #    midi_range: {start: 36, end: 67}  # 32 keys
+  #    pause_after_range: true
+  #    auto_resume: 0
+  #    prompt: "Adjust SK-1 octave up, press Enter..."
+  #    # Result: Samples MIDI 36-67 twice, pausing between cycles
   #
-  # 2. Acoustic drum kit (tune each drum between notes)
-  #    every: 1
-  #    continue: 0
+  # 2. Fixed interval pause (every 12 notes)
+  #    pause_interval: 12
+  #    auto_resume: 5
+  #    prompt: "Check levels..."
+  #    # Result: Pauses every 12 notes, auto-resumes after 5s
+  #
+  # 3. Acoustic drum kit (tune each drum)
+  #    pause_interval: 1
+  #    auto_resume: 0
   #    prompt: "Tune next drum and press Enter..."
   #
-  # 3. Vocal sampling (prepare performer for next phrase)
-  #    every: 12
-  #    continue: 30
+  # 4. Vocal sampling (prepare performer)
+  #    pause_interval: 12
+  #    auto_resume: 30
   #    prompt: "Prepare for next phrase (auto-continues in 30s)..."
   #
-  # 4. Exotic instrument (needs manual pitch adjustment)
-  #    every: 1
-  #    continue: 0
-  #    prompt: "Adjust instrument pitch to next note and press Enter..."
+  # 5. Akai S950 (12-key bank system, sample 60 notes)
+  #    midi_range: {start: 36, end: 47}  # 12 keys per bank
+  #    pause_after_range: true
+  #    auto_resume: 0
+  #    prompt: "Load next bank on S950, press Enter..."
+  #    # Result: Cycles through 12-key range 5 times
+  
+  # ---------------------------------------------------------------------------
+  # MIDI RANGE MAPPING DETAILS
+  # ---------------------------------------------------------------------------
+  # When midi_range is enabled:
+  #   - AutosamplerT maps SFZ notes to MIDI notes using modulo arithmetic
+  #   - Display shows: "MIDI: C1 (36) -> SFZ: E3 (68)"
+  #   - Log output: "Sampling: MIDI=C1 (36) -> SFZ=E3 (68), Vel=127"
+  #   - pause_after_range triggers pause after each MIDI cycle
+  #   - pause_interval is ignored when midi_range is active
+  #
+  # Example with 32-key hardware, 96-note SFZ range:
+  #   midi_range: {start: 36, end: 67}  # 32 MIDI keys
+  #   note_range: {start: 36, end: 131} # 96 SFZ notes
+  #
+  #   Cycle 1: MIDI 36-67 -> SFZ 36-67   (notes 0-31)
+  #   PAUSE (if pause_after_range: true)
+  #   Cycle 2: MIDI 36-67 -> SFZ 68-99   (notes 32-63)
+  #   PAUSE
+  #   Cycle 3: MIDI 36-67 -> SFZ 100-131 (notes 64-95)
+  #   Done: 96 notes using only 32 MIDI keys!
 
 # ==============================================================================
 # POST-PROCESSING OPTIONS
