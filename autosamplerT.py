@@ -182,6 +182,15 @@ def get_arg_parser() -> argparse.ArgumentParser:
                                help='Apply dithering when converting bit depth')
     postprocessing.add_argument('--backup', action='store_true',
                                help='Create backup before processing')
+    
+    # Export format options
+    postprocessing.add_argument('--export_formats', type=str, metavar='FORMATS',
+                               help='Export to additional sampler formats: qpat,ableton,exs,sxt (comma-separated)')
+    postprocessing.add_argument('--export_location', type=int, metavar='LOC',
+                               choices=[2, 3, 4], default=4,
+                               help='Waldorf sample location: 2=SD card, 3=internal, 4=USB (default: 4)')
+    postprocessing.add_argument('--export_optimize_audio', action='store_true',
+                               help='Convert samples to 44.1kHz 32-bit float for Waldorf QPAT')
 
     return parser
 
@@ -543,6 +552,11 @@ def main() -> None:
             # Process samples
             processor.process_samples([str(p) for p in sample_paths], operations)
             
+            # Export to additional formats if requested
+            if args.export_formats and args.process:
+                _export_multisample_formats(args, config, args.process, 
+                                           config.get('sampling', {}).get('output_folder', './output'))
+            
             print("\nPostprocessing completed successfully!")
             sys.exit(0)
             
@@ -587,6 +601,43 @@ def main() -> None:
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
+
+def _export_multisample_formats(args, config, multisample_name, output_folder):
+    """Export multisample to additional formats."""
+    export_formats = [f.strip().lower() for f in args.export_formats.split(',')]
+    
+    # Find SFZ file
+    multisample_folder = os.path.join(output_folder, multisample_name)
+    sfz_file = os.path.join(multisample_folder, f'{multisample_name}.sfz')
+    samples_folder = os.path.join(multisample_folder, 'samples')
+    
+    if not os.path.exists(sfz_file):
+        print(f"[ERROR] SFZ file not found: {sfz_file}")
+        return
+    
+    for fmt in export_formats:
+        if fmt == 'qpat':
+            print(f"\n[EXPORT] Converting to Waldorf QPAT format...")
+            from src.export_qpat import export_to_qpat
+            success = export_to_qpat(
+                output_folder=output_folder,
+                multisample_name=multisample_name,
+                sfz_file=sfz_file,
+                samples_folder=samples_folder,
+                location=args.export_location,
+                optimize_audio=args.export_optimize_audio
+            )
+            if success:
+                print(f"[SUCCESS] Exported to QPAT: {multisample_name}.qpat")
+            else:
+                print(f"[ERROR] Failed to export QPAT")
+        
+        elif fmt in ['ableton', 'exs', 'sxt']:
+            print(f"[TODO] {fmt.upper()} export not yet implemented")
+        else:
+            print(f"[ERROR] Unknown export format: {fmt}")
+
 
 if __name__ == "__main__":
     main()

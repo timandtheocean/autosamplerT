@@ -116,7 +116,24 @@ Sample file organization and format generation.
 
 ---
 
-### 7. [Post-Processing](doc/POSTPROCESSING.md)
+### 7. [Export Formats](doc/EXPORT_FORMATS.md)
+Convert and export to various sampler formats.
+
+**Topics covered:**
+- Waldorf Quantum/Iridium QPAT format (✅ implemented)
+- Ableton Live format (🚧 planned)
+- Logic Pro EXS24 format (🚧 planned)
+- Kontakt SXT format (🚧 planned)
+- QPAT format specification (binary header, parameters, sample maps)
+- Sample location prefixes and import workflow
+- Multi-format export workflow
+- Format-specific constraints and best practices
+
+**When to use:** Exporting to hardware samplers, converting between formats, deploying to multiple targets
+
+---
+
+### 8. [Post-Processing](doc/POSTPROCESSING.md)
 Audio processing after sample capture.
 
 **Topics covered:**
@@ -176,7 +193,7 @@ python autosamplerT.py --script conf/test/test_program_change.yaml
 python autosamplerT.py --setup all
 
 # 4. Create custom script with MIDI control
-# See doc/MIDI_CONTROL_FEATURE.md for examples
+# See doc/MIDI_CONTROL.md for examples
 
 # 5. Run sampling
 python autosamplerT.py --script conf/my_synth.yaml
