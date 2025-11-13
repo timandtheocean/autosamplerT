@@ -93,6 +93,10 @@ class PostProcessor:
                     min_duration_param = operations.get('loop_min_duration', 0.1)
                     start_time = operations.get('loop_start_time')
                     end_time = operations.get('loop_end_time')
+                    loop_strategy = operations.get('loop_strategy', 'longest_good')
+                    quality_threshold = operations.get('loop_quality_threshold', 0.7)
+                    skip_attack_auto = operations.get('skip_attack_auto', True)
+                    loop_end_margin = operations.get('loop_end_margin', 0.1)
                     
                     # Calculate sample duration
                     sample_duration = len(audio_data) / samplerate
@@ -116,7 +120,11 @@ class PostProcessor:
                         audio_data, samplerate, 
                         min_loop_length=min_duration,
                         start_time=start_time,
-                        end_time=end_time
+                        end_time=end_time,
+                        loop_strategy=loop_strategy,
+                        quality_threshold=quality_threshold,
+                        skip_attack_auto=skip_attack_auto,
+                        loop_end_margin=loop_end_margin
                     )
                     
                     if loop_points:
@@ -558,18 +566,200 @@ class PostProcessor:
         
         return start + closest_idx
     
+    def _detect_sustain_region(self, audio_data: np.ndarray, samplerate: int, 
+                               end_margin: float = 0.1) -> Tuple[int, int]:
+        """
+        Detect the sustain region by analyzing amplitude envelope and variance.
+        Automatically skips attack phase and avoids release tail.
+        
+        Args:
+            audio_data: Mono audio data as float32
+            samplerate: Sample rate in Hz
+            end_margin: Fraction of sample to leave at end (0.0-1.0, default 0.1 = 10%)
+        
+        Returns:
+            (sustain_start, sustain_end) in samples
+        """
+        # Calculate RMS envelope with 10ms windows
+        window_size = int(0.01 * samplerate)  # 10ms windows
+        hop_size = window_size // 2
+        
+        envelope = []
+        for i in range(0, len(audio_data) - window_size, hop_size):
+            window = audio_data[i:i + window_size]
+            rms = np.sqrt(np.mean(window ** 2))
+            envelope.append(rms)
+        
+        envelope = np.array(envelope)
+        
+        if len(envelope) < 10:
+            # Too short for analysis, use middle section
+            start_idx = int(len(audio_data) * 0.2)
+            end_idx = int(len(audio_data) * (1.0 - end_margin))
+            return (start_idx, end_idx)
+        
+        # Find peak (attack maximum)
+        peak_idx = np.argmax(envelope)
+        
+        # Find sustain region: area with most stable amplitude after peak
+        # Calculate variance in sliding windows
+        variance_window = min(20, len(envelope) // 4)  # Adaptive window size
+        min_variance = float('inf')
+        best_region_start = peak_idx
+        
+        # Search from peak to end-margin
+        end_search = int(len(envelope) * (1.0 - end_margin))
+        
+        for i in range(peak_idx, end_search - variance_window):
+            window_env = envelope[i:i + variance_window]
+            variance = np.var(window_env)
+            
+            if variance < min_variance:
+                min_variance = variance
+                best_region_start = i
+        
+        # Convert envelope indices back to sample indices
+        sustain_start = best_region_start * hop_size
+        sustain_end = int(len(audio_data) * (1.0 - end_margin))
+        
+        # Ensure reasonable range
+        sustain_start = max(0, min(sustain_start, len(audio_data) - 1))
+        sustain_end = max(sustain_start + samplerate, sustain_end)  # At least 1 second
+        sustain_end = min(sustain_end, len(audio_data) - 1)
+        
+        print(f"  - Sustain region detected: {sustain_start/samplerate:.2f}s - {sustain_end/samplerate:.2f}s")
+        print(f"  - Skipped attack phase: {sustain_start/samplerate:.2f}s")
+        print(f"  - Avoided release tail: {end_margin*100:.0f}% ({(len(audio_data)-sustain_end)/samplerate:.2f}s)")
+        
+        return (sustain_start, sustain_end)
+    
+    def _find_longest_good_loop(self, audio_region: np.ndarray, samplerate: int,
+                                min_loop_length: float, quality_threshold: float = 0.7) -> Optional[Tuple[int, float]]:
+        """
+        Find the longest loop with acceptable quality within the sustain region.
+        
+        Args:
+            audio_region: Audio data within sustain region
+            samplerate: Sample rate in Hz
+            min_loop_length: Minimum acceptable loop length in seconds
+            quality_threshold: Minimum quality score (0.0-1.0, default 0.7)
+        
+        Returns:
+            (loop_length_samples, quality_score) or None if no good loop found
+        """
+        # Calculate autocorrelation for the entire region
+        max_lag = len(audio_region) // 2
+        min_lag = int(min_loop_length * samplerate)
+        
+        if min_lag >= max_lag:
+            return None
+        
+        # Compute autocorrelation
+        correlation = np.correlate(audio_region[:max_lag], 
+                                   audio_region[:max_lag], 
+                                   mode='full')
+        correlation = correlation[len(correlation)//2:]  # Only positive lags
+        
+        # Find peaks (potential loop points) - search from longest to shortest
+        peaks, properties = signal.find_peaks(correlation[min_lag:], 
+                                             height=quality_threshold * np.max(correlation),
+                                             distance=min_lag//4)
+        
+        if len(peaks) == 0:
+            # Try lower threshold
+            peaks, properties = signal.find_peaks(correlation[min_lag:], 
+                                                 height=0.5 * np.max(correlation),
+                                                 distance=min_lag//4)
+        
+        if len(peaks) == 0:
+            return None
+        
+        # Adjust peak indices (they're relative to min_lag offset)
+        peaks = peaks + min_lag
+        
+        # Sort by length (longest first)
+        peak_qualities = properties['peak_heights']
+        sorted_indices = np.argsort(peaks)[::-1]  # Descending order
+        
+        # Find the longest loop that meets quality threshold
+        for idx in sorted_indices:
+            loop_length = peaks[idx]
+            quality = peak_qualities[idx] / np.max(correlation)
+            
+            # Validate loop quality with multi-scale analysis
+            if self._validate_loop_quality(audio_region, loop_length, samplerate):
+                print(f"  - Found loop: length={loop_length/samplerate:.2f}s, quality={quality:.3f}")
+                return (loop_length, quality)
+        
+        return None
+    
+    def _validate_loop_quality(self, audio_region: np.ndarray, loop_length: int, 
+                               samplerate: int) -> bool:
+        """
+        Validate loop quality using multiple criteria.
+        
+        Args:
+            audio_region: Audio data
+            loop_length: Loop length in samples
+            samplerate: Sample rate in Hz
+        
+        Returns:
+            True if loop meets quality criteria
+        """
+        if loop_length <= 0 or loop_length >= len(audio_region):
+            return False
+        
+        # Extract loop segments
+        loop_start = len(audio_region) - loop_length
+        if loop_start < 0:
+            return False
+        
+        loop_begin = audio_region[loop_start:loop_start + min(loop_length, len(audio_region) - loop_start)]
+        loop_end = audio_region[-loop_length:]
+        
+        if len(loop_begin) < loop_length // 2 or len(loop_end) < loop_length // 2:
+            return False
+        
+        # Criterion 1: RMS amplitude similarity (within 10%)
+        rms_begin = np.sqrt(np.mean(loop_begin ** 2))
+        rms_end = np.sqrt(np.mean(loop_end ** 2))
+        
+        if rms_end > 0:
+            rms_diff = abs(rms_begin - rms_end) / rms_end
+            if rms_diff > 0.1:  # More than 10% difference
+                return False
+        
+        # Criterion 2: Waveform correlation (above 0.8)
+        min_len = min(len(loop_begin), len(loop_end))
+        correlation = np.corrcoef(loop_begin[:min_len], loop_end[:min_len])[0, 1]
+        
+        if correlation < 0.8:
+            return False
+        
+        # Criterion 3: Penalize very short loops (< 0.5s)
+        if loop_length < 0.5 * samplerate:
+            return False
+        
+        return True
+    
     def _find_loop_points(self, audio_data: np.ndarray, samplerate: int,
                           min_loop_length: float = 0.1, start_time: float = None, 
-                          end_time: float = None) -> Optional[Tuple[int, int]]:
+                          end_time: float = None, loop_strategy: str = "longest_good",
+                          quality_threshold: float = 0.7, skip_attack_auto: bool = True,
+                          loop_end_margin: float = 0.1) -> Optional[Tuple[int, int]]:
         """
-        Find optimal loop points using autocorrelation with zero-crossing detection.
+        Find optimal loop points using envelope-based sustain detection and longest-good-loop selection.
         
         Args:
             audio_data: Audio data as float32
             samplerate: Sample rate in Hz
             min_loop_length: Minimum loop length in seconds
-            start_time: Optional fixed start time in seconds
-            end_time: Optional fixed end time in seconds
+            start_time: Optional fixed start time in seconds (manual override)
+            end_time: Optional fixed end time in seconds (manual override)
+            loop_strategy: "longest_good" (default), "shortest_good", or "manual"
+            quality_threshold: Minimum quality for loop (0.0-1.0, default 0.7)
+            skip_attack_auto: Automatically detect and skip attack phase (default True)
+            loop_end_margin: Margin at end to avoid release (0.0-1.0, default 0.1 = 10%)
         
         Returns:
             (loop_start, loop_end) in samples, or None if no good loop found
@@ -581,8 +771,9 @@ class PostProcessor:
             mono = audio_data
         
         total_duration = len(mono) / samplerate
+        print(f"  - Loop detection: strategy={loop_strategy}, quality_threshold={quality_threshold}")
         
-        # If both start and end times are provided, use them directly
+        # Priority 1: Manual override - both start and end times provided
         if start_time is not None and end_time is not None:
             loop_start = int(start_time * samplerate)
             loop_end = int(end_time * samplerate)
@@ -595,92 +786,72 @@ class PostProcessor:
             loop_start = self._find_zero_crossing(mono, loop_start, search_radius=500)
             loop_end = self._find_zero_crossing(mono, loop_end, search_radius=500)
             
-            print(f"  - Using provided loop points: {start_time:.2f}s - {end_time:.2f}s")
+            print(f"  - Manual override: {start_time:.2f}s - {end_time:.2f}s")
             return (loop_start, loop_end)
         
-        # Auto-detect loop points
-        # Focus on the sustained part (skip attack, use last 80%)
-        start_search = int(len(mono) * 0.2)
+        # Priority 2: Envelope-based sustain region detection
+        if skip_attack_auto:
+            sustain_start, sustain_end = self._detect_sustain_region(mono, samplerate, loop_end_margin)
+        else:
+            # Use simple 20% skip if automatic detection disabled
+            sustain_start = int(len(mono) * 0.2)
+            sustain_end = int(len(mono) * (1.0 - loop_end_margin))
         
-        # If start_time provided, use it as starting point
+        # Apply manual start_time override if provided
         if start_time is not None:
-            start_search = int(start_time * samplerate)
-            start_search = max(0, min(start_search, len(mono) - 1))
+            sustain_start = int(start_time * samplerate)
+            sustain_start = max(0, min(sustain_start, len(mono) - 1))
+            print(f"  - Manual start time override: {start_time:.2f}s")
         
-        search_region = mono[start_search:]
+        # Apply manual end_time override if provided
+        if end_time is not None:
+            sustain_end = int(end_time * samplerate)
+            sustain_end = min(sustain_end, len(mono) - 1)
+            print(f"  - Manual end time override: {end_time:.2f}s")
         
-        if len(search_region) < min_loop_length * samplerate:
-            return None
+        # Extract sustain region for loop analysis
+        sustain_region = mono[sustain_start:sustain_end]
         
-        # Calculate autocorrelation for loop detection
-        # This finds repeating patterns in the audio
-        max_lag = min(len(search_region) // 2, int(10 * samplerate))  # Max 10 second loops
-        correlation = np.correlate(search_region[:max_lag], 
-                                   search_region[:max_lag], 
-                                   mode='full')
-        correlation = correlation[len(correlation)//2:]  # Only positive lags
-        
-        # Find peaks in autocorrelation (potential loop lengths)
-        min_samples = int(min_loop_length * samplerate)
-        if min_samples >= len(correlation):
-            # Fallback to simple loop
-            loop_start = start_search
-            loop_end = len(mono) - 1
-            return (loop_start, loop_end)
-        
-        correlation_search = correlation[min_samples:]
-        
-        # Normalize correlation
-        if len(correlation_search) > 0 and np.max(np.abs(correlation_search)) > 0:
-            correlation_search = correlation_search / np.max(np.abs(correlation_search))
-        else:
-            # No good loop found
+        if len(sustain_region) < min_loop_length * samplerate:
+            print(f"  - Sustain region too short for minimum loop length")
+            # Fallback: use second half
             loop_start = len(mono) // 2
             loop_end = len(mono) - 1
             return (loop_start, loop_end)
         
-        # Find the first strong peak (threshold 0.5 for good similarity)
-        peaks, properties = signal.find_peaks(correlation_search, 
-                                             height=0.5, 
-                                             distance=min_samples//2)
+        # Priority 3: Find longest good loop within sustain region
+        result = self._find_longest_good_loop(sustain_region, samplerate, 
+                                              min_loop_length, quality_threshold)
         
-        if len(peaks) == 0:
-            # Try lower threshold
-            peaks, properties = signal.find_peaks(correlation_search, 
-                                                 height=0.3,
-                                                 distance=min_samples//2)
+        if result is not None:
+            loop_length, quality = result
+            
+            # Position loop at end of sustain region
+            loop_end = sustain_end
+            loop_start = sustain_end - loop_length
+            
+            # Ensure loop_start is within bounds
+            if loop_start < sustain_start:
+                loop_start = sustain_start
+            
+            # Find zero crossings for smooth transitions
+            loop_start = self._find_zero_crossing(mono, loop_start, search_radius=500)
+            loop_end = self._find_zero_crossing(mono, loop_end, search_radius=500)
+            
+            # Validate final loop length
+            final_length = (loop_end - loop_start) / samplerate
+            print(f"  - Final loop: {loop_start/samplerate:.2f}s - {loop_end/samplerate:.2f}s (length: {final_length:.2f}s)")
+            
+            return (loop_start, loop_end)
         
-        if len(peaks) == 0:
-            # No good loop found, use second half as loop
-            loop_start = len(mono) // 2
-            loop_end = len(mono) - 1
-        else:
-            # Use the first strong peak as loop length
-            loop_length = peaks[0] + min_samples
-            
-            # Set loop points
-            if end_time is not None:
-                loop_end = int(end_time * samplerate)
-                loop_end = min(loop_end, len(mono) - 1)
-            else:
-                loop_end = len(mono) - 1
-            
-            loop_start = loop_end - loop_length
-            
-            # Make sure loop_start is positive
-            if loop_start < 0:
-                loop_start = start_search
+        # Priority 4: Fallback - use second half of sample
+        print(f"  - No good loop found with quality threshold {quality_threshold}, using fallback")
+        loop_start = len(mono) // 2
+        loop_end = len(mono) - 1
         
-        # Find zero crossings for smoother loop points
+        # Find zero crossings
         loop_start = self._find_zero_crossing(mono, loop_start, search_radius=500)
         loop_end = self._find_zero_crossing(mono, loop_end, search_radius=500)
-        
-        # Ensure loop is still at least min_loop_length
-        if loop_end - loop_start < min_loop_length * samplerate:
-            loop_end = loop_start + int(min_loop_length * samplerate)
-            if loop_end >= len(mono):
-                loop_end = len(mono) - 1
-                loop_start = loop_end - int(min_loop_length * samplerate)
         
         return (loop_start, loop_end)
     
