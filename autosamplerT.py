@@ -194,7 +194,7 @@ def get_arg_parser() -> argparse.ArgumentParser:
     
     # Export format options
     postprocessing.add_argument('--export_formats', type=str, metavar='FORMATS',
-                               help='Export to additional sampler formats: qpat,ableton,exs,sxt (comma-separated)')
+                               help='Export to additional sampler formats: qpat,waldorf_map,ableton,exs,sxt (comma-separated)')
     postprocessing.add_argument('--export_location', type=int, metavar='LOC',
                                choices=[2, 3, 4], default=2,
                                help='Waldorf sample location: 2=SD card (default), 3=internal, 4=USB')
@@ -649,6 +649,21 @@ def _export_multisample_formats(args, config, multisample_name, output_folder):
                 print(f"[SUCCESS] Exported to QPAT: {multisample_name}.qpat")
             else:
                 print(f"[ERROR] Failed to export QPAT")
+        
+        elif fmt == 'waldorf_map':
+            print(f"\n[EXPORT] Converting to Waldorf Sample Map format...")
+            from src.export.export_waldorf_sample_map import export_to_waldorf_map
+            success = export_to_waldorf_map(
+                output_folder=output_folder,
+                map_name=multisample_name,
+                sfz_file=sfz_file,
+                samples_folder=samples_folder,
+                location=args.export_location
+            )
+            if success:
+                print(f"[SUCCESS] Exported to Waldorf Map: {multisample_name}.map")
+            else:
+                print(f"[ERROR] Failed to export Waldorf Map")
         
         elif fmt in ['ableton', 'exs', 'sxt']:
             print(f"[TODO] {fmt.upper()} export not yet implemented")
