@@ -636,7 +636,7 @@ def _export_multisample_formats(args, config, multisample_name, output_folder):
     for fmt in export_formats:
         if fmt == 'qpat':
             print(f"\n[EXPORT] Converting to Waldorf QPAT format...")
-            from src.export_qpat import export_to_qpat
+            from src.export.export_qpat import export_to_qpat
             success = export_to_qpat(
                 output_folder=output_folder,
                 multisample_name=multisample_name,

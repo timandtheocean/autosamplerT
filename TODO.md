@@ -6,7 +6,7 @@
 
 ### [DONE] Waldorf Quantum/Iridium QPAT Format Export
 **Status:** FULLY IMPLEMENTED
-**Location:** `src/export_qpat.py`, `doc/EXPORT_FORMATS.md`
+**Location:** `src/export/export_qpat.py`, `doc/EXPORT_FORMATS.md`
 **Date:** November 13, 2025
 
 **Implementation Complete:**

@@ -426,7 +426,7 @@ export:
 ### Python API
 
 ```python
-from src.export_qpat import export_to_qpat
+from src.export.export_qpat import export_to_qpat
 
 # Export to QPAT
 success = export_to_qpat(
@@ -481,7 +481,7 @@ Each format has a dedicated writer class:
 ### Community Contributions
 Want to add support for your favorite sampler format?
 1. Check `TODO.md` for planned formats
-2. Review `src/export_qpat.py` as reference
+2. Review `src/export/export_qpat.py` as reference
 3. Analyze target format specification
 4. Submit pull request with new exporter
 
