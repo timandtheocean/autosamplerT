@@ -4,6 +4,17 @@ Python-based autosampler to create SFZ multisample libraries from hardware synth
 
 A cross-platform program that samples hardware synthesizers by sending MIDI notes (and optionally MIDI messages like CC, NRPN, program changes, and SysEx) to a hardware device, captures the audio, and creates an SFZ multisample with export options for various sampler formats.
 
+**Key Features:**
+- **Automated Sampling**: Script complete sampling workflows like a robot - set it and forget it
+- **Interactive Sampling**: Pause at intervals for manual adjustments to hardware (perfect for vintage samplers, acoustic instruments, and modular synths)
+- **MIDI Range Mapping**: Sample 96+ notes using hardware with limited keys (e.g., Casio SK-1 with 32 keys)
+- **Advanced MIDI Control**: Per-layer CC, CC14, NRPN, SysEx, and program changes for complex patches
+- **Intelligent Post-Processing**: Auto-loop detection, silence trimming, normalization, and DC offset removal
+- **Multi-Format Export**: Native SFZ with planned support for Waldorf QPAT, Ableton, EXS24, and Kontakt
+- **Professional Audio**: ASIO multi-channel support, 16/24/32-bit, up to 192kHz sample rates
+
+Whether you're sampling a vintage hardware synth, a modular rig, acoustic instruments, or vocals - AutosamplerT handles velocity layers, round-robin variations, and complex MIDI routing with ease.
+
 
 
 ## Features
