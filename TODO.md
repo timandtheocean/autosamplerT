@@ -5,27 +5,41 @@
 ## COMPLETED - Recent Accomplishments
 
 ### [DONE] Waldorf Quantum/Iridium QPAT Format Export
-**Status:** FULLY IMPLEMENTED
+**Status:** FULLY IMPLEMENTED AND TESTED
 **Location:** `src/export/export_qpat.py`, `doc/EXPORT_FORMATS.md`
-**Date:** November 13, 2025
+**Date:** November 13-14, 2025
 
 **Implementation Complete:**
 - Text file format with 512-byte binary header + plain text sections
 - Binary header: magic number 3402932, version 14, metadata (name, creator, description, categories)
 - Tab-separated sample maps (16 columns) with up to 3 maps (velocity/round-robin layers)
 - Sample location prefixes: 2=SD card (default), 3=internal, 4=USB (auto-import trigger)
-- SFZ parser for extracting groups and zones
-- Sample copying and optional audio optimization (44.1kHz 32-bit float)
+- **SFZ parser** - Enhanced to support both inline and multi-line SFZ formats
+- **SFZ generator** - Updated to generate proper `<group>` tags for velocity/round-robin layers
+- Sample copying (audio optimization NOT YET implemented - see below)
 - CLI arguments: `--export_formats qpat`, `--export_location 2|3|4`, `--export_optimize_audio`
 - YAML configuration support
 - Comprehensive documentation (650+ lines in EXPORT_FORMATS.md)
 
-**Testing:**
-- [TODO] Test QPAT export with real Quantum/Iridium hardware
-- [TODO] Verify USB import trigger works correctly
-- [TODO] Test velocity layer switching
-- [TODO] Test round-robin functionality
+**Testing Results:**
+- [PASS] SFZ parser correctly reads multi-line format (groups + regions)
+- [PASS] Generated QPAT file with 3 velocity × 2 round-robin = 6 groups (reduced to 3 max)
+- [PASS] Binary header structure verified (512 bytes)
+- [PASS] Sample maps with correct tab-separated format (16 columns)
+- [PASS] Location prefixes working (2:samples/... for SD card)
+- [TODO] Test QPAT file with real Quantum/Iridium hardware
+- [TODO] Verify USB import trigger works correctly (location=4)
+- [TODO] Test velocity layer switching on hardware
+- [TODO] Test round-robin functionality on hardware
 - [TODO] Create dedicated test script in `conf/test/`
+
+**Known Limitations:**
+- [TODO] Audio optimization (`--export_optimize_audio`) - Parameter accepted but NOT IMPLEMENTED
+  - Currently: Samples copied as-is with `shutil.copy2()`
+  - Should: Convert to 44.1kHz 32-bit float WAV when `optimize_audio=True`
+  - Reason: Waldorf Quantum/Iridium prefers 44.1kHz 32-bit float (~360MB RAM limit)
+  - Implementation needed: Use `scipy.signal.resample` + `soundfile` for conversion
+  - See: ConvertWithMoss implementation for reference
 
 ---
 
@@ -608,6 +622,94 @@ if config['audio_interface'].get('debug'):
 else:
     logging.basicConfig(level=logging.INFO)
 ```
+
+---
+
+## UI/UX Issues
+
+### 22. [TODO] Fix "Recent MIDI Messages" Display - DUPLICATE LINES
+**Status:** UI bug - shows duplicate lines and inconsistent formatting
+**Location:** `src/sampler.py` display logic (around line 248)
+
+**Current Behavior:**
+```
+-------------------------------------------------------------------------------------------------------------------------------------------
+  Recent MIDI Messages:
+    Note ON: D#4 (MIDI 63), Vel=127 (Layer 3/3), RR=1/2, Ch=0
+    Note ON: D#4 (MIDI 63), Vel=127 (Layer 3/3), RR=1/2, Ch=0
+-------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+**Issues:**
+- Shows duplicate lines (same message appears twice)
+- Inconsistent line count (sometimes 1 line, sometimes 2)
+- Should display all MIDI message types (NRPN, SysEx, CC, Program Change)
+
+**Required Fix:**
+- Investigate why messages are duplicated in `self.midi_messages`
+- Ensure single line display with all message types visible
+- Show NRPN, SysEx, CC14, Program Change messages in the UI
+
+---
+
+## New Feature Requests
+
+### 23. [TODO] Implement Chord Mode for Sampling Chords
+**Status:** PLANNED - New sampling mode for chord-based sampling
+**Priority:** MEDIUM-HIGH
+
+**Requirements:**
+- **Single File Mode:** Sample entire chord into one WAV file (for samplers with slicing like Pioneer SP-16)
+- **Multi-File Mode:** Sample each note of chord into separate files
+- **Chord Selection:** User selects key and inversion (e.g., C major, 1st inversion)
+- **MIDI Routing:** Send chord notes to different MIDI devices/channels
+- **Integration:** Work with existing velocity/round-robin layers
+
+**Implementation Ideas:**
+- Add `--chord_mode` flag with options: `single_file`, `multi_file`
+- Add `--chord_key` (C, D, E, etc.) and `--chord_type` (major, minor, 7th, etc.)
+- Add `--chord_inversion` (root, 1st, 2nd, etc.)
+- Add `--chord_devices` to route different notes to different MIDI devices
+- Extend YAML config with chord section
+
+**Use Cases:**
+- Piano chords for sample-based instruments
+- Guitar chords for rhythm guitar libraries
+- Synth pads with chord stabs
+- Drum patterns (treating drum hits as "chord" notes)
+
+---
+
+### 24. [TODO] Simple GUI with Piano Roll for YAML Script Generation
+**Status:** CONCEPT - JavaScript/HTML piano roll interface
+**Priority:** LOW-MEDIUM
+
+**Requirements:**
+- **Piano Roll Interface:** Visual keyboard showing note ranges
+- **Drag & Drop:** Select note ranges by dragging on piano keys
+- **Velocity Layers:** Visual bars showing velocity layer splits
+- **Round-Robin:** Indicators for round-robin variations
+- **YAML Export:** Generate complete `autosamplerT_script.yaml` file
+- **Real-time Preview:** Show estimated sample count and duration
+
+**Technical Approach:**
+- Simple HTML/JavaScript (no framework needed)
+- Canvas-based piano roll drawing
+- Drag selection for note ranges
+- Slider controls for velocity splits
+- Export to YAML format
+- Could be standalone HTML file or VS Code webview
+
+**Benefits:**
+- User-friendly alternative to manual YAML editing
+- Visual feedback for complex sampling setups
+- Reduces configuration errors
+- Educational tool for understanding sampling concepts
+
+**Integration:**
+- Standalone tool: `gui/piano_roll.html`
+- VS Code extension: Webview panel
+- Output: Valid YAML script that can be used with CLI
 
 ---
 

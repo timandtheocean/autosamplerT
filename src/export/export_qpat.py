@@ -110,6 +110,7 @@ class WaldorfQpatExporter:
     def _parse_sfz(self, sfz_file: str) -> Tuple[List[Dict], Dict]:
         """
         Parse SFZ file to extract groups and metadata.
+        Supports both inline and multi-line SFZ formats.
         
         Returns:
             (groups, metadata)
@@ -118,6 +119,7 @@ class WaldorfQpatExporter:
         metadata = {'creator': 'AutosamplerT', 'description': '', 
                    'category': '', 'keywords': []}
         current_group = None
+        current_zone = None
         
         with open(sfz_file, 'r') as f:
             for line in f:
@@ -127,28 +129,58 @@ class WaldorfQpatExporter:
                 if not line or line.startswith('//'):
                     continue
                 
-                # Parse headers
+                # Parse group header
                 if line.startswith('<group>'):
+                    # Save previous group
                     if current_group and current_group['zones']:
                         groups.append(current_group)
-                    current_group = {'zones': [], 'settings': {}}
                     
+                    current_group = {'zones': [], 'settings': {}}
+                    current_zone = None
+                    
+                    # Parse inline group parameters
+                    params = line[7:].strip()  # Remove '<group>'
+                    if params:
+                        for param in params.split():
+                            if '=' in param:
+                                key, value = param.split('=', 1)
+                                current_group['settings'][key] = value
+                
+                # Parse region header
                 elif line.startswith('<region>'):
+                    # Create group if none exists (for groupless SFZ files)
                     if not current_group:
                         current_group = {'zones': [], 'settings': {}}
+                    
+                    # Save previous region
+                    if current_zone and 'sample' in current_zone:
+                        current_group['zones'].append(current_zone)
+                    
                     current_zone = {}
                     
-                    # Parse region parameters
+                    # Parse inline region parameters
                     params = line[8:].strip()  # Remove '<region>'
-                    for param in params.split():
-                        if '=' in param:
-                            key, value = param.split('=', 1)
-                            current_zone[key] = value
+                    if params:
+                        for param in params.split():
+                            if '=' in param:
+                                key, value = param.split('=', 1)
+                                current_zone[key] = value
+                
+                # Parse parameters on separate lines (multi-line format)
+                elif '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
                     
-                    if current_zone:
-                        current_group['zones'].append(current_zone)
+                    # Group settings or region parameters
+                    if current_zone is not None:
+                        current_zone[key] = value
+                    elif current_group is not None:
+                        current_group['settings'][key] = value
         
-        # Add last group
+        # Save last region and group
+        if current_zone and 'sample' in current_zone:
+            current_group['zones'].append(current_zone)
         if current_group and current_group['zones']:
             groups.append(current_group)
         

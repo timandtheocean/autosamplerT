@@ -1400,7 +1400,17 @@ class AutoSampler:
                 f.write(f"// Sample Rate: {self.samplerate} Hz\n")
                 f.write(f"// Bit Depth: {self.bitdepth} bits\n\n")
                 
-                # Group samples by note and velocity
+                # Group samples by velocity layer and round-robin
+                samples_by_vel_rr = {}
+                for sample in sample_list:
+                    vel_layer = sample.get('velocity_layer', 0)
+                    rr_layer = sample.get('roundrobin_layer', 0)
+                    key = (vel_layer, rr_layer)
+                    if key not in samples_by_vel_rr:
+                        samples_by_vel_rr[key] = []
+                    samples_by_vel_rr[key].append(sample)
+                
+                # Also group by note for key mapping
                 samples_by_note = {}
                 for sample in sample_list:
                     note = sample['note']
@@ -1417,76 +1427,101 @@ class AutoSampler:
                 lowest_note = all_notes[0]
                 highest_note = all_notes[-1]
                 
-                # Write regions
-                for i, note in enumerate(all_notes):
-                    note_samples = samples_by_note[note]
+                # Write groups (for velocity layers and round-robin)
+                # Sort groups by velocity layer, then round-robin
+                sorted_groups = sorted(samples_by_vel_rr.keys())
+                
+                for group_key in sorted_groups:
+                    vel_layer, rr_layer = group_key
+                    group_samples = samples_by_vel_rr[group_key]
                     
-                    # Calculate key range for this sample
-                    # If only one sample, it covers the configured keyboard range
-                    if len(all_notes) == 1:
-                        note_lokey = self.lowest_note
-                        note_hikey = self.highest_note
-                    else:
-                        # Lowest sample extends down to configured lowest_note
-                        if i == 0:
-                            note_lokey = self.lowest_note
-                            note_hikey = (note + all_notes[i + 1]) // 2
-                        # Highest sample extends up to configured highest_note
-                        elif i == len(all_notes) - 1:
-                            note_lokey = (all_notes[i - 1] + note) // 2 + 1
-                            note_hikey = self.highest_note
-                        # Middle samples split the range
-                        else:
-                            note_lokey = (all_notes[i - 1] + note) // 2 + 1
-                            note_hikey = (note + all_notes[i + 1]) // 2
-                    
-                    # Sort by velocity
-                    note_samples.sort(key=lambda x: x['velocity'])
-                    
-                    for j, sample in enumerate(note_samples):
-                        f.write(f"<region>\n")
-                        # Reference sample with samples subfolder
-                        sample_name = Path(sample['file']).name
-                        f.write(f"sample=samples/{sample_name}\n")
-                        f.write(f"pitch_keycenter={note}\n")
-                        f.write(f"lokey={note_lokey}\n")
-                        f.write(f"hikey={note_hikey}\n")
-                        
-                        # Velocity ranges
-                        if len(note_samples) > 1:
-                            # Use custom split points if available
-                            if self.velocity_layers_split is not None:
-                                if j == 0:
-                                    lovel = self.velocity_minimum
-                                else:
-                                    lovel = self.velocity_layers_split[j-1] + 1
-                                
-                                hivel = self.velocity_layers_split[j]
+                    # Calculate velocity range for this group
+                    if self.velocity_layers > 1:
+                        if self.velocity_layers_split is not None:
+                            # Use custom split points
+                            if vel_layer == 0:
+                                lovel = self.velocity_minimum
                             else:
-                                # Default behavior: calculate midpoints
-                                if j == 0:
+                                lovel = self.velocity_layers_split[vel_layer - 1] + 1
+                            
+                            if vel_layer < len(self.velocity_layers_split):
+                                hivel = self.velocity_layers_split[vel_layer]
+                            else:
+                                hivel = 127
+                        else:
+                            # Calculate from actual velocities in group
+                            velocities = sorted(set(s['velocity'] for s in group_samples))
+                            if len(velocities) == 1:
+                                # Only one velocity in this layer, estimate range
+                                if vel_layer == 0:
                                     lovel = 0
-                                else:
-                                    prev_vel = note_samples[j-1]['velocity']
-                                    curr_vel = sample['velocity']
-                                    lovel = (prev_vel + curr_vel) // 2
-                                
-                                if j == len(note_samples) - 1:
+                                    hivel = (velocities[0] + (velocities[0] if vel_layer == self.velocity_layers - 1 else 127)) // 2
+                                elif vel_layer == self.velocity_layers - 1:
+                                    lovel = velocities[0] // 2
                                     hivel = 127
                                 else:
-                                    curr_vel = sample['velocity']
-                                    next_vel = note_samples[j+1]['velocity']
-                                    hivel = (curr_vel + next_vel) // 2
-                            
-                            f.write(f"lovel={lovel}\n")
-                            f.write(f"hivel={hivel}\n")
+                                    lovel = velocities[0] // 2
+                                    hivel = (velocities[0] + 127) // 2
+                            else:
+                                lovel = min(velocities)
+                                hivel = max(velocities)
+                    else:
+                        lovel = 0
+                        hivel = 127
+                    
+                    # Write group header
+                    f.write(f"<group>\n")
+                    if self.velocity_layers > 1:
+                        f.write(f"lovel={lovel}\n")
+                        f.write(f"hivel={hivel}\n")
+                    
+                    # Round-robin
+                    if self.roundrobin_layers > 1:
+                        f.write(f"seq_length={self.roundrobin_layers}\n")
+                        f.write(f"seq_position={rr_layer + 1}\n")
+                    
+                    f.write(f"\n")
+                    
+                    # Write regions for this group
+                    # Group samples by note
+                    group_by_note = {}
+                    for sample in group_samples:
+                        note = sample['note']
+                        if note not in group_by_note:
+                            group_by_note[note] = []
+                        group_by_note[note].append(sample)
+                    
+                    for i, note in enumerate(all_notes):
+                        if note not in group_by_note:
+                            continue
                         
-                        # Round-robin
-                        if sample.get('roundrobin_layer', 0) > 0 or self.roundrobin_layers > 1:
-                            f.write(f"seq_length={self.roundrobin_layers}\n")
-                            f.write(f"seq_position={sample['roundrobin_layer'] + 1}\n")
+                        # Calculate key range for this sample
+                        if len(all_notes) == 1:
+                            note_lokey = self.lowest_note
+                            note_hikey = self.highest_note
+                        else:
+                            # Lowest sample extends down to configured lowest_note
+                            if i == 0:
+                                note_lokey = self.lowest_note
+                                note_hikey = (note + all_notes[i + 1]) // 2
+                            # Highest sample extends up to configured highest_note
+                            elif i == len(all_notes) - 1:
+                                note_lokey = (all_notes[i - 1] + note) // 2 + 1
+                                note_hikey = self.highest_note
+                            # Middle samples split the range
+                            else:
+                                note_lokey = (all_notes[i - 1] + note) // 2 + 1
+                                note_hikey = (note + all_notes[i + 1]) // 2
                         
-                        f.write(f"\n")
+                        for sample in group_by_note[note]:
+                            f.write(f"<region>\n")
+                            # Reference sample with samples subfolder
+                            sample_name = Path(sample['file']).name
+                            f.write(f"sample=samples/{sample_name}\n")
+                            f.write(f"pitch_keycenter={note}\n")
+                            f.write(f"lokey={note_lokey}\n")
+                            f.write(f"hikey={note_hikey}\n")
+                            f.write(f"\n")
                 
             logging.info(f"SFZ file generated: {output_path}")
             return True

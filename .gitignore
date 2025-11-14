@@ -33,3 +33,6 @@ output/
 
 # GitHub Copilot
 .github/copilot-instructions.md
+
+# External repositories for reference
+ConvertWithMoss/
