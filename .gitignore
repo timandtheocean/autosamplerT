@@ -30,3 +30,6 @@ output/
 
 # Logs
 *.log
+
+# GitHub Copilot
+.github/copilot-instructions.md
