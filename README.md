@@ -10,7 +10,7 @@ A cross-platform program that samples hardware synthesizers by sending MIDI note
 - **MIDI Range Mapping**: Sample 96+ notes using hardware with limited keys (e.g., Casio SK-1 with 32 keys)
 - **Advanced MIDI Control**: Per-layer CC, CC14, NRPN, SysEx, and program changes for complex patches
 - **Intelligent Post-Processing**: Auto-loop detection, silence trimming, normalization, and DC offset removal
-- **Multi-Format Export**: Native SFZ with planned support for Waldorf QPAT, Ableton, EXS24, and Kontakt
+- **Multi-Format Export**: Native SFZ with planned support for Waldorf QPAT, Ableton, EXS24, and Reason SXT
 - **Professional Audio**: ASIO multi-channel support, 16/24/32-bit, up to 192kHz sample rates
 
 Whether you're sampling a vintage hardware synth, a modular rig, acoustic instruments, or vocals - AutosamplerT handles velocity layers, round-robin variations, and complex MIDI routing with ease.
@@ -63,7 +63,7 @@ Whether you're sampling a vintage hardware synth, a modular rig, acoustic instru
 - **Waldorf QPAT**: Export to Waldorf Quantum/Iridium format (SD card, internal, or USB storage)
 - **Ableton Live**: Planned
 - **Logic Pro EXS24**: Planned
-- **Kontakt SXT**: Planned
+- **Reason SXT**: Planned
 - WAV file export with metadata (MIDI note, velocity, channel, loop points in RIFF chunks)
 - Customizable sample naming and folder organization
 - Optional JSON sidecar files for debugging (disabled by default)
