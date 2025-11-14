@@ -1,12 +1,8 @@
-# AutosamplerT# AutosamplerT
+# AutosamplerT
 
+Python-based autosampler to create SFZ multisample libraries from hardware synths and instruments.
 
-
-Python-based autosampler to create SFZ multisample libraries from hardware synths and instruments.Python-based autosampler to create SFZ multisample libraries from hardware synths and instruments.
-
-
-
-A cross-platform program that samples hardware synthesizers by sending MIDI notes (and optionally MIDI messages like CC, NRPN, program changes, and SysEx) to a hardware device, captures the audio, and creates an SFZ multisample with export options for various sampler formats.A cross-platform program that samples hardware synthesizers by sending MIDI notes (and optionally midi messages like CC, nrpn, program changes and SysEx messages) to a hardware device, captures the audio, and creates an SFZ multisample.
+A cross-platform program that samples hardware synthesizers by sending MIDI notes (and optionally MIDI messages like CC, NRPN, program changes, and SysEx) to a hardware device, captures the audio, and creates an SFZ multisample with export options for various sampler formats.
 
 
 
@@ -80,161 +76,99 @@ A cross-platform program that samples hardware synthesizers by sending MIDI note
 - **Command-line interface**: Full CLI support for automation and batch processing
 - **Config file**: Store audio/MIDI device settings separately from scripts
 - **Script templates**: Pre-made templates for common workflows
-- **Test scripts**: Comprehensive test suite in `conf/test/` directory## Installation
+- **Test scripts**: Comprehensive test suite in `conf/test/` directory
 
+## Installation
 
+See [REQUIREMENTS.md](REQUIREMENTS.md) for platform-specific installation instructions.
 
-## Quick StartSee [REQUIREMENTS.md](REQUIREMENTS.md) for platform-specific installation instructions.
-
-
-
-### InstallationQuick install (all platforms):
-
-```bash
-
-See [INSTALL.md](INSTALL.md) for platform-specific automated installation scripts.pip install sounddevice numpy scipy mido python-rtmidi pyyaml
-
-```
+See [INSTALL.md](INSTALL.md) for platform-specific automated installation scripts.
 
 Quick install (all platforms):
 
-```bash## Usage
-
+```bash
 pip install sounddevice numpy scipy mido python-rtmidi pyyaml
-
-```### 1. Initial Setup
-
-
-
-### Basic UsageConfigure your audio and MIDI interfaces:
-
-
-
-**1. Initial Setup**```bash
-
-python autosamplerT.py --setup
-
-Configure your audio and MIDI interfaces:```
-
-```bash
-
-python autosamplerT.py --setup allThis will guide you through selecting:
-
-```- Audio input/output devices
-
-- Sample rate and bit depth
-
-**2. Run Sampling**- MIDI input/output devices
-
-
-
-Using a script file:Configuration is saved to `conf/autosamplerT_config.yaml`
-
-```bash
-
-python autosamplerT.py --script conf/my_synth.yaml### 2. Run Sampling
-
 ```
+
+## Usage
+
+### 1. Initial Setup
+
+Configure your audio and MIDI interfaces:
+
+```bash
+python autosamplerT.py --setup all
+```
+
+This will guide you through selecting:
+- Audio input/output devices
+- Sample rate and bit depth
+- MIDI input/output devices
+
+Configuration is saved to `conf/autosamplerT_config.yaml`
+
+### 2. Run Sampling
 
 Basic sampling with config file:
 
+```bash
+python autosamplerT.py
+```
+
 Basic command-line sampling:
 
-```bash```bash
+```bash
+python autosamplerT.py --note_range_start C3 --note_range_end C5 --note_range_interval 1
+```
 
-python autosamplerT.py --note_range_start C3 --note_range_end C5 --note_range_interval 1python autosamplerT.py
+Using a script file for batch sampling:
 
-``````
-
-
-
-**3. Post-Process Samples**Using a script file for batch sampling:
-
-
-
-Normalize and trim silence:```bash
-
-```bashpython autosamplerT.py --script conf/autosamplerT_script.yaml
-
-python autosamplerT.py --process "MySynth" --patch_normalize --trim_silence```
-
+```bash
+python autosamplerT.py --script conf/autosamplerT_script.yaml
 ```
 
 ### 3. Command-Line Options
 
-Auto-loop detection:
+**Important: CLI vs Script Syntax Differences**
 
-```bash**Important: CLI vs Script Syntax Differences**
-
-python autosamplerT.py --process "MySynth" --auto_loop --loop_min_duration 55%
-
-```When using command-line arguments, note range uses **three separate flags**:
+When using command-line arguments, note range uses **three separate flags**:
 
 ```bash
-
-**4. Export to Sampler Formats**# CLI syntax (three separate flags)
-
+# CLI syntax (three separate flags)
 python autosamplerT.py --note_range_start 36 --note_range_end 96 --note_range_interval 1
+```
 
-Export to Waldorf Quantum/Iridium:```
-
-```bash
-
-python autosamplerT.py --process "MySynth" --export_formats qpatWhen using script files (YAML), note range uses a **dict with start/end/interval keys**:
-
-``````yaml
-
-# Script syntax (dict format)
-
-### Example: Sample with MIDI Controlsampling_midi:
-
-  note_range: {start: 36, end: 96, interval: 1}
-
-Create a YAML script (`conf/my_synth.yaml`):```
+When using script files (YAML), note range uses a **dict with start/end/interval keys**:
 
 ```yaml
+# Script syntax (dict format)
+sampling_midi:
+  note_range: {start: 36, end: 96, interval: 1}
+```
 
-name: "My Synth Sampling"The same applies to velocity layer splits:
-
+The same applies to velocity layer splits:
 - **CLI**: `--velocity_layers_split 50,90` (comma-separated string)
+- **Script**: `velocity_layers_split: [50, 90]` or `velocity_layers_split: null` (YAML list or null)
 
-audio:- **Script**: `velocity_layers_split: [50, 90]` or `velocity_layers_split: null` (YAML list or null)
-
-  samplerate: 48000
-
-  bitdepth: 24View all options:
+View all options:
 
 ```bash
-
-midi_interface:python autosamplerT.py --help
-
-  output_port_name: "Prophet 6"```
-
-  program_change: 10
+python autosamplerT.py --help
+```
 
 View category-specific help:
 
-sampling:```bash
-
-  note_range_start: 36python autosamplerT.py --help audio
-
-  note_range_end: 96python autosamplerT.py --help midi
-
-  note_range_interval: 1python autosamplerT.py --help sampling
-
-  velocity_layers: 3python autosamplerT.py --help postprocessing
-
-  hold_time: 3.0```
-
-  release_time: 1.5
+```bash
+python autosamplerT.py --help audio
+python autosamplerT.py --help midi
+python autosamplerT.py --help sampling
+python autosamplerT.py --help postprocessing
+```
 
 #### Audio Options Examples
 
-sampling_midi:
-
-  velocity_midi_control:```bash
-
-    - layer: 0# Set sample rate and bit depth
+```bash
+# Set sample rate and bit depth
 
       cc_messages: {7: 32}python autosamplerT.py --samplerate 96000 --bitdepth 24
 
