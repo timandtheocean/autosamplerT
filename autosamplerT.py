@@ -4,8 +4,8 @@ os.environ["SD_ENABLE_ASIO"] = "1"
 
 import argparse
 import sys
+import re 
 import yaml
-import re
 from typing import Optional
 
 def note_name_to_midi(note_str: str) -> Optional[int]:
