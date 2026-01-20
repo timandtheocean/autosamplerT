@@ -84,6 +84,8 @@ Whether you're sampling a vintage hardware synth, a modular rig, acoustic instru
 
 ### Scripting & Automation
 - **YAML-based scripting system**: Define complete sampling workflows in human-readable format
+- **Script auto-copy**: Scripts automatically saved to output folders for documentation
+- **Batch processing**: `--script-folder` processes all YAML files in a folder sequentially
 - **Command-line interface**: Full CLI support for automation and batch processing
 - **Config file**: Store audio/MIDI device settings separately from scripts
 - **Script templates**: Pre-made templates for common workflows
@@ -132,10 +134,20 @@ Basic command-line sampling:
 python autosamplerT.py --note_range_start C3 --note_range_end C5 --note_range_interval 1
 ```
 
-Using a script file for batch sampling:
+Using a script file:
 
 ```bash
 python autosamplerT.py --script conf/autosamplerT_script.yaml
+```
+
+Batch processing multiple scripts:
+
+```bash
+# Process all YAML files in folder
+python autosamplerT.py --script-folder conf/test
+
+# With export options
+python autosamplerT.py --script-folder conf/production --export_formats qpat,waldorf_map
 ```
 
 ### 3. Command-Line Options

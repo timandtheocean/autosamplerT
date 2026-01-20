@@ -1,0 +1,46 @@
+name: "Prophet 6 - Test 3: 3 Velocity × 3 Round-Robin"
+description: "2 semitone intervals, 3 velocity layers, 3 round-robin groups"
+
+audio:
+  samplerate: 48000
+  bitdepth: 24
+  mono_stereo: stereo
+  channel_offset: 2
+
+midi_interface:
+  output_port_name: 1
+  cc_messages: {7: 127}
+
+sampling:
+  note_range_start: 36
+  note_range_end: 96
+  note_range_interval: 2
+  velocity_layers: 3
+  roundrobin_layers: 3
+  hold_time: 3.0
+  release_time: 1.5
+  pause_time: 2.0
+  multisample_name: prophet6-test3-3vel-3rr
+  auto_looping: true
+
+sampling_midi:
+  velocity_midi_control:
+    - layer: 0
+      cc_messages: {7: 32}
+    - layer: 1
+      cc_messages: {7: 80}
+    - layer: 2
+      cc_messages: {7: 127}
+
+postprocessing:
+  auto_loop: true
+  loop_min_duration: "50%"
+  trim_silence: true
+
+export:
+  formats:
+    - qpat
+    - waldorf_map
+  qpat:
+    location: 2
+    optimize_audio: true

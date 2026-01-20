@@ -4,8 +4,8 @@ os.environ["SD_ENABLE_ASIO"] = "1"
 
 import argparse
 import sys
-import re 
 import yaml
+import re
 from typing import Optional
 
 def note_name_to_midi(note_str: str) -> Optional[int]:
@@ -67,12 +67,18 @@ def get_arg_parser() -> argparse.ArgumentParser:
                            help='Path to config YAML')
     main_group.add_argument('--script', type=str, 
                            help='Path to script YAML for batch sampling')
+    main_group.add_argument('--script-folder', type=str, 
+                           help='Path to folder containing multiple YAML scripts to process sequentially')
     # Setup can target specific subsystems: --setup audio | midi | all (default: all if no value provided)
     main_group.add_argument('--setup', nargs='?', const='all', choices=['audio','midi','all'],
                            help='Run setup for interfaces: audio, midi, or all (default: all)')
+    main_group.add_argument('--export_only', action='store_true',
+                           help='Export existing SFZ to other formats without sampling (requires --multisample_name or --script)')
     main_group.add_argument('--help', nargs='?', const='main', default=None, 
                            choices=['main', 'audio', 'midi', 'sampling', 'postprocessing', 'examples'], 
                            help='Show help for main, audio, midi, sampling, postprocessing, or examples')
+    main_group.add_argument('--batch', action='store_true',
+                           help=argparse.SUPPRESS)  # Hidden flag for internal batch processing
 
     # Audio options
     audio = parser.add_argument_group('audio', 'Audio interface options')
@@ -198,6 +204,12 @@ def get_arg_parser() -> argparse.ArgumentParser:
     postprocessing.add_argument('--export_location', type=int, metavar='LOC',
                                choices=[2, 3, 4], default=2,
                                help='Waldorf sample location: 2=SD card (default), 3=internal, 4=USB')
+    postprocessing.add_argument('--export_loop_mode', type=int, metavar='MODE',
+                               choices=[0, 1, 2], default=1,
+                               help='Loop mode: 0=off, 1=forward (default), 2=ping-pong')
+    postprocessing.add_argument('--export_loop_crossfade', type=float, metavar='MS',
+                               default=10.0,
+                               help='Loop crossfade time in milliseconds (default: 10.0ms)')
     postprocessing.add_argument('--export_optimize_audio', action='store_true',
                                help='Convert samples to 44.1kHz 32-bit float for Waldorf QPAT')
 
@@ -337,7 +349,7 @@ def main() -> None:
         
         # Merge script config into main config (script overrides config file)
         if script_config:
-            for section in ['audio_interface', 'midi_interface', 'sampling', 'sampling_midi', 'interactive_sampling']:
+            for section in ['audio_interface', 'midi_interface', 'sampling', 'sampling_midi', 'interactive_sampling', 'output', 'audio', 'postprocessing', 'export']:
                 if section in script_config:
                     if section not in config:
                         config[section] = {}
@@ -493,6 +505,23 @@ def main() -> None:
             'continue': args.interactive_continue,
             'prompt': args.interactive_prompt
         }, 'interactive_sampling')
+    
+    # Merge export formats from config if not specified in CLI
+    if not args.export_formats and 'export' in config and 'formats' in config['export']:
+        formats_list = config['export']['formats']
+        if isinstance(formats_list, list):
+            args.export_formats = ','.join(formats_list)
+    
+    # Merge export location from config if not specified in CLI
+    if 'export' in config:
+        if 'qpat' in config['export'] and 'location' in config['export']['qpat']:
+            if args.export_location == 2:  # Only override if it's the default
+                args.export_location = config['export']['qpat']['location']
+        
+        # Load crossfade setting from config
+        if 'loop_crossfade_ms' in config['export']:
+            if not hasattr(args, 'export_loop_crossfade') or args.export_loop_crossfade == 10.0:  # Default value
+                args.export_loop_crossfade = config['export']['loop_crossfade_ms']
 
     # Setup mode
     if args.setup:
@@ -508,6 +537,131 @@ def main() -> None:
             print("Launching MIDI setup...")
             os.system(f"{sys.executable} src/set_midi_config.py")
         print("Setup complete.")
+        sys.exit(0)
+
+    # Script folder mode - process all YAML files in folder
+    if args.script_folder:
+        from pathlib import Path
+        import glob
+        
+        script_folder = Path(args.script_folder)
+        if not script_folder.exists():
+            print(f"[ERROR] Script folder not found: {script_folder}")
+            sys.exit(1)
+        
+        if not script_folder.is_dir():
+            print(f"[ERROR] Path is not a directory: {script_folder}")
+            sys.exit(1)
+        
+        # Find all YAML files
+        yaml_files = sorted(script_folder.glob('*.yaml')) + sorted(script_folder.glob('*.yml'))
+        
+        if not yaml_files:
+            print(f"[ERROR] No YAML files found in: {script_folder}")
+            sys.exit(1)
+        
+        print(f"=== AutosamplerT - Batch Processing ===")
+        print(f"Found {len(yaml_files)} YAML file(s) in: {script_folder}\n")
+                # Show pre-batch monitoring if not in batch mode
+        if not args.batch:
+            print("=" * 70)
+            print("PRE-BATCH AUDIO MONITORING")
+            print("=" * 70)
+            print("Before starting batch processing, verify your audio setup.")
+            print("This will be used for all scripts in the folder.\n")
+            
+            try:
+                from src.realtime_monitor import show_pre_sampling_monitor
+                
+                # Use basic audio settings for monitoring
+                proceed = show_pre_sampling_monitor(
+                    device_index=None,  # Use default or from config
+                    sample_rate=44100,
+                    channels=2,
+                    channel_offset=0,
+                    title="Pre-Batch Audio Monitor"
+                )
+                
+                if not proceed:
+                    print("Batch processing cancelled by user")
+                    sys.exit(0)
+                    
+                print("\nProceeding with batch processing...\n")
+                
+            except ImportError:
+                print("[WARNING] Audio monitoring not available")
+            except Exception as e:
+                print(f"[WARNING] Could not start audio monitoring: {e}")
+                print("Continuing with batch processing...\n")
+        
+        for i, yaml_file in enumerate(yaml_files, 1):
+            print(f"\n{'='*80}")
+            print(f"Processing {i}/{len(yaml_files)}: {yaml_file.name}")
+            print(f"{'='*80}\n")
+            
+            # Build command: python autosamplerT.py --script <yaml_file> --batch
+            # Preserve key arguments from current invocation
+            cmd = [sys.executable, __file__, '--script', str(yaml_file), '--batch']
+            
+            # Add output folder if specified
+            if args.output_folder:
+                cmd.extend(['--output_folder', args.output_folder])
+            
+            # Add export formats if specified
+            if args.export_formats:
+                cmd.extend(['--export_formats', args.export_formats])
+            
+            # Add export location if specified and not default
+            if args.export_location != 2:
+                cmd.extend(['--export_location', str(args.export_location)])
+            
+            # Run the script
+            import subprocess
+            result = subprocess.run(cmd)
+            
+            if result.returncode != 0:
+                print(f"\n[WARNING] Script {yaml_file.name} failed with return code {result.returncode}")
+                response = input("Continue with remaining scripts? (y/n): ")
+                if response.lower() != 'y':
+                    print("Batch processing cancelled.")
+                    sys.exit(1)
+            else:
+                print(f"\n[SUCCESS] Script {yaml_file.name} completed successfully")
+        
+        print(f"\n{'='*80}")
+        print(f"Batch processing complete: {len(yaml_files)} file(s) processed")
+        print(f"{'='*80}\n")
+        sys.exit(0)
+
+    # Export-only mode (convert existing SFZ to other formats)
+    if args.export_only:
+        print("=== AutosamplerT - Export Only Mode ===\n")
+        
+        if not args.export_formats:
+            print("[ERROR] --export_formats is required for export-only mode")
+            print("Example: --export_only --export_formats qpat,waldorf_map --multisample_name MySynth")
+            sys.exit(1)
+        
+        # Determine multisample name and output folder
+        multisample_name = args.multisample_name
+        output_folder = args.output_folder or config.get('sampling', {}).get('output_folder', './output')
+        
+        # If using script mode, get name from script config
+        if args.script and not multisample_name:
+            multisample_name = config.get('sampling', {}).get('multisample_name')
+        
+        if not multisample_name:
+            print("[ERROR] --multisample_name is required for export-only mode")
+            print("Or use --script with a script file that specifies multisample_name")
+            sys.exit(1)
+        
+        print(f"Multisample: {multisample_name}")
+        print(f"Output folder: {output_folder}")
+        print(f"Export formats: {args.export_formats}\n")
+        
+        _export_multisample_formats(args, config, multisample_name, output_folder)
+        
+        print("\n=== Export Complete ===")
         sys.exit(0)
 
     # Postprocessing mode
@@ -598,7 +752,7 @@ def main() -> None:
         from src.sampler import AutoSampler
         
         # Create sampler instance
-        sampler = AutoSampler(config)
+        sampler = AutoSampler(config, batch_mode=args.batch)
         
         # Run sampling workflow
         success = sampler.run()
@@ -606,6 +760,23 @@ def main() -> None:
         if success:
             print("\nSampling completed successfully!")
             print(f"Output folder: {sampler.output_folder}")
+            
+            # Copy script file to multisample folder if script was used
+            if args.script:
+                import shutil
+                multisample_folder = str(sampler.multisample_folder)
+                script_dest = os.path.join(multisample_folder, os.path.basename(args.script))
+                try:
+                    shutil.copy2(args.script, script_dest)
+                    print(f"Script copied to: {script_dest}")
+                except Exception as e:
+                    print(f"Warning: Could not copy script file: {e}")
+            
+            # Export to additional formats if requested
+            if args.export_formats:
+                multisample_name = sampler.multisample_name
+                output_folder = sampler.base_output_folder
+                _export_multisample_formats(args, config, multisample_name, output_folder)
         else:
             print("\nSampling failed - check logs for details")
             sys.exit(1)
@@ -638,15 +809,17 @@ def _export_multisample_formats(args, config, multisample_name, output_folder):
             print(f"\n[EXPORT] Converting to Waldorf QPAT format...")
             from src.export.export_qpat import export_to_qpat
             success = export_to_qpat(
-                output_folder=output_folder,
+                output_folder=multisample_folder,
                 multisample_name=multisample_name,
                 sfz_file=sfz_file,
                 samples_folder=samples_folder,
                 location=args.export_location,
-                optimize_audio=args.export_optimize_audio
+                loop_mode=getattr(args, 'export_loop_mode', 1),
+                optimize_audio=args.export_optimize_audio,
+                crossfade_ms=getattr(args, 'export_loop_crossfade', 10.0)
             )
             if success:
-                print(f"[SUCCESS] Exported to QPAT: {multisample_name}.qpat")
+                print(f"[SUCCESS] Exported to QPAT: {multisample_folder}/{multisample_name}.qpat")
             else:
                 print(f"[ERROR] Failed to export QPAT")
         
@@ -654,14 +827,16 @@ def _export_multisample_formats(args, config, multisample_name, output_folder):
             print(f"\n[EXPORT] Converting to Waldorf Sample Map format...")
             from src.export.export_waldorf_sample_map import export_to_waldorf_map
             success = export_to_waldorf_map(
-                output_folder=output_folder,
+                output_folder=multisample_folder,
                 map_name=multisample_name,
                 sfz_file=sfz_file,
                 samples_folder=samples_folder,
-                location=args.export_location
+                location=args.export_location,
+                loop_mode=getattr(args, 'export_loop_mode', 1),
+                crossfade_ms=getattr(args, 'export_loop_crossfade', 10.0)
             )
             if success:
-                print(f"[SUCCESS] Exported to Waldorf Map: {multisample_name}.map")
+                print(f"[SUCCESS] Exported to Waldorf Map: {multisample_folder}/{multisample_name}.map")
             else:
                 print(f"[ERROR] Failed to export Waldorf Map")
         

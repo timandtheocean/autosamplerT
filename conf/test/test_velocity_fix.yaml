@@ -1,0 +1,38 @@
+name: "Test Velocity Layer Fix"
+description: "Quick test of velocity layer ranges with 3 velocity layers"
+
+audio:
+  samplerate: 48000
+  bitdepth: 24
+  mono_stereo: stereo
+  channel_offset: 2
+
+midi_interface:
+  output_port_name: 1
+
+sampling:
+  note_range_start: 60
+  note_range_end: 64
+  note_range_interval: 2
+  velocity_layers: 3
+  velocity_layers_split: [42, 84]
+  roundrobin_layers: 1
+  hold_time: 2.0
+  release_time: 1.0
+  pause_time: 2.0
+  multisample_name: test-velocity-fix
+  auto_looping: true
+
+postprocessing:
+  auto_loop: true
+  loop_min_duration: "50%"
+  trim_silence: true
+  silence_detection: auto     # "auto" (detect noise floor) or "manual" (use threshold)
+  silence_threshold: -60.0    # Manual threshold in dB (used when silence_detection: manual)
+
+export:
+  formats:
+    - qpat
+    - waldorf_map
+  qpat:
+    location: 2

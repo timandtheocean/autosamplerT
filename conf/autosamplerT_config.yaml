@@ -1,6 +1,6 @@
 audio_interface:
   bitdepth: 24
-  channel_offset: 2
+  input_channels: 3-4
   input_device_index: 16
   output_device_index: 16
   samplerate: 44100

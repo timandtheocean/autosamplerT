@@ -1,0 +1,34 @@
+# Test patch: Test 0dB volume (should output 1.0 in column 5)
+# Expected Column 5 output: 1.000000
+
+name: "test_col5_gain_0db"
+description: "Test 0dB volume (should output 1.0 in column 5)"
+
+# Audio settings
+audio:
+  samplerate: 48000
+  bitdepth: 24
+
+# MIDI interface (no MIDI needed for this test)
+midi_interface:
+  output_port_name: null
+
+# Sampling configuration
+sampling:
+  note_range_start: 61
+  note_range_end: 61
+  velocity_layers: 1
+  roundrobin_layers: 1
+  hold_time: 2.0
+  release_time: 0.5
+
+# Post-processing
+postprocessing:
+  normalize: false
+  trim_silence: false
+  volume: 0.0  # This is the key test parameter
+
+# Export formats
+export:
+  formats:
+    - map

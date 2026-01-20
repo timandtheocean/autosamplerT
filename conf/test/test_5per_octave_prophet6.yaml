@@ -1,0 +1,45 @@
+# Test: 5 samples per octave for Prophet 6
+# Quick test of sampling and autolooping
+
+# Output settings
+output:
+  multisample_name: "prophet-6-patch-12"
+
+# Audio settings
+audio:
+  samplerate: 44100
+  bitdepth: 24
+  mono_stereo: stereo
+
+# Sampling configuration
+sampling:
+  note_range_start: 36  # C2
+  note_range_end: 96    # C7
+  note_range_interval: 2  # 2 semitones = 6 samples per octave
+  velocity_layers: 1
+  roundrobin_layers: 1
+  hold_time: 2.0
+  release_time: 1.0
+  pause_time: 2.0
+
+# Post-processing
+postprocessing:
+  normalize: true
+  target_level: -3.0
+  trim_silence: true
+  silence_threshold: -60.0
+  auto_loop: true
+  loop_strategy: "sustain"
+  loop_min_duration: "30%"
+
+# Export
+export:
+  formats:
+    - sfz
+    - qpat
+    - waldorf_map
+    - ableton
+    - exs24
+  qpat:
+    location: 2  # 2=SD card, 3=internal, 4=USB
+    optimize_audio: false  # true=convert to 44.1kHz 32-bit float, false=keep original 44.1kHz 24-bit

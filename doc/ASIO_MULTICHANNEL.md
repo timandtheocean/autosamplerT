@@ -4,7 +4,7 @@ Guide for using multi-channel ASIO audio interfaces with AutosamplerT.
 
 ## Overview
 
-AutosamplerT supports ASIO audio interfaces with multiple channel pairs (4, 6, or 8 channels). You can select which specific stereo pair or individual mono channel to record from using the `--channel_offset` argument.
+AutosamplerT supports ASIO audio interfaces with multiple channel pairs (4, 6, or 8 channels). You can select which specific stereo pair or individual mono channel to record from using the `input_channels` configuration.
 
 ## What It's Used For
 
@@ -57,15 +57,15 @@ Physical device: **8-Channel ASIO Interface**
 
 ## Usage
 
-### Command-Line Arguments
+### Configuration
 
-**`--channel_offset`**
+**`input_channels`** (in YAML or config file)
 
 Selects which stereo pair to record from:
-- `0` = Channels 0-1 (first pair)
-- `2` = Channels 2-3 (second pair)
-- `4` = Channels 4-5 (third pair)
-- `6` = Channels 6-7 (fourth pair)
+- `"1-2"` = Channels 1-2 (first pair)
+- `"3-4"` = Channels 3-4 (second pair)
+- `"5-6"` = Channels 5-6 (third pair)
+- `"7-8"` = Channels 7-8 (fourth pair)
 
 **`--mono_stereo`**
 
@@ -81,53 +81,76 @@ Which channel within the selected pair:
 
 ### Examples
 
-#### Example 1: Record Stereo from Ch A
-```bash
-python autosamplerT.py \
-  --channel_offset 0 \
-  --note_range_start C2 \
-  --note_range_end C7 \
-  --multisample_name synth_ch_a
+#### Example 1: Record Stereo from Inputs 1-2
+```yaml
+audio:
+  input_channels: "1-2"
+  mono_stereo: stereo
+
+sampling:
+  note_range_start: C2
+  note_range_end: C7
+
+output:
+  multisample_name: "synth_inputs_1-2"
 ```
 
-#### Example 2: Record Stereo from Ch B
-```bash
-python autosamplerT.py \
-  --channel_offset 2 \
-  --note_range_start C2 \
-  --note_range_end C7 \
-  --multisample_name synth_ch_b
+#### Example 2: Record Stereo from Inputs 3-4
+```yaml
+audio:
+  input_channels: "3-4"
+  mono_stereo: stereo
+
+sampling:
+  note_range_start: C2
+  note_range_end: C7
+
+output:
+  multisample_name: "synth_inputs_3-4"
 ```
 
-#### Example 3: Record Mono from Ch B Left
-```bash
-python autosamplerT.py \
-  --channel_offset 2 \
-  --mono_stereo mono \
-  --mono_channel 0 \
-  --note_range_start C2 \
-  --note_range_end C7 \
-  --multisample_name synth_ch_b_left
+#### Example 3: Record Mono from Input 3 (Left of 3-4 pair)
+```yaml
+audio:
+  input_channels: "3-4"
+  mono_stereo: mono
+  mono_channel: 0  # Left channel
+
+sampling:
+  note_range_start: C2
+  note_range_end: C7
+
+output:
+  multisample_name: "synth_input_3_mono"
 ```
 
-#### Example 4: Record Mono from Ch B Right
-```bash
-python autosamplerT.py \
-  --channel_offset 2 \
-  --mono_stereo mono \
-  --mono_channel 1 \
-  --note_range_start C2 \
-  --note_range_end C7 \
-  --multisample_name synth_ch_b_right
+#### Example 4: Record Mono from Input 4 (Right of 3-4 pair)
+```yaml
+audio:
+  input_channels: "3-4"
+  mono_stereo: mono
+  mono_channel: 1  # Right channel
+
+sampling:
+  note_range_start: C2
+  note_range_end: C7
+
+output:
+  multisample_name: "synth_input_4_mono"
 ```
 
-#### Example 5: 8-Channel Device - Record from Pair 3
-```bash
-python autosamplerT.py \
-  --channel_offset 4 \
-  --note_range_start C2 \
-  --note_range_end C7 \
-  --multisample_name synth_pair_3
+#### Example 5: 8-Channel Device - Record from Inputs 5-6
+```yaml
+audio:
+  input_channels: "5-6"
+  mono_stereo: stereo
+
+sampling:
+  note_range_start: C2
+  note_range_end: C7
+
+output:
+  multisample_name: "synth_inputs_5-6"
 ```
 
 ### YAML Configuration
@@ -135,12 +158,21 @@ python autosamplerT.py \
 Configure channel selection in your script YAML file:
 
 ```yaml
+audio:
+  input_channels: "3-4"         # Record from inputs 3-4
+  mono_stereo: stereo           # Or 'mono' for single channel
+  mono_channel: 0               # 0=left, 1=right (for mono mode)
+  samplerate: 44100
+  bitdepth: 24
+```
+
+Or in `conf/autosamplerT_config.yaml`:
+
+```yaml
 audio_interface:
   input_device_index: 16        # Your ASIO device
   output_device_index: 16
-  channel_offset: 2             # Record from Ch B (channels 2-3)
-  mono_stereo: stereo           # Or 'mono' for single channel
-  mono_channel: 0               # 0=left, 1=right
+  input_channels: "3-4"         # Record from inputs 3-4
   samplerate: 44100
   bitdepth: 24
 ```

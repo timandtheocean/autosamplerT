@@ -1,0 +1,39 @@
+name: "Final Prophet-06 with 3 Velocity + 3 Round-Robin"
+description: "Production-ready Prophet-06 sampling with custom velocity ranges and round-robin layers"
+
+audio:
+  samplerate: 48000
+  bitdepth: 24
+  mono_stereo: mono
+  channel_offset: 2
+
+midi_interface:
+  output_port_name: "Prophet 6"
+
+sampling:
+  note_range_start: 36
+  note_range_end: 96
+  note_range_interval: 1
+  velocity_layers: 1
+  roundrobin_layers: 3
+  hold_time: 3.5
+  release_time: 1.5
+  pause_time: 2.0
+  multisample_name: final-prophet-06-no-vel-3rr
+  auto_looping: true
+
+postprocessing:
+  auto_loop: true
+  loop_mode: ping-pong
+  loop_min_duration: "50%"
+  trim_silence: true
+
+export:
+  formats:
+    - qpat
+    - waldorf_map
+  qpat:
+    location: 2
+    optimize_audio: true
+  waldorf_map:
+    location: 2

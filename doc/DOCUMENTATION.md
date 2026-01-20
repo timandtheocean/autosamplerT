@@ -67,9 +67,20 @@ YAML-based scripting for automated sampling workflows.
 - Script merging behavior
 - YAML structure and sections
 - sampling_midi configuration
+- Script auto-copy to output folders
+- Batch processing with --script-folder
 - Best practices and examples
 
-**When to use:** Creating reusable sampling configurations, batch sampling, testing different MIDI settings
+**When to use:** Creating reusable sampling configurations, batch sampling, testing different MIDI settings, documenting workflows
+
+**Key features:**
+- YAML-based configuration format
+- Script auto-copy to output folders for documentation
+- Batch processing with `--script-folder`
+- Per-layer MIDI control (velocity and round-robin)
+- Config file merging (script overrides config)
+- Interactive sampling support
+- Patch iteration (sample multiple patches sequentially)
 
 ---
 

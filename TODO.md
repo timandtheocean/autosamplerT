@@ -4,6 +4,68 @@
 
 ## COMPLETED - Recent Accomplishments
 
+### [DONE] Velocity Layer System and Export Loop Mode Fixes
+**Status:** FULLY IMPLEMENTED
+**Date:** January 9, 2026
+
+**Velocity Layer Fixes:**
+- Fixed velocity range calculation to create proper non-overlapping ranges (1-42, 43-84, 85-127)
+- Fixed velocity sampling to use split points as actual velocities (42, 84, 127)
+- Fixed velocity=0 validation warnings by updating display initialization to use velocity=127
+- Fixed MIDI control summary to show velocity layers even without MIDI control messages
+- Fixed velocity_layers_split configuration location (now reads from sampling config, not midi config)
+- Velocity layers now use actual MIDI note-on velocity values, not CC messages
+
+**Export Format Improvements:**
+- Added `--export_loop_mode` CLI argument (0=off, 1=forward, 2=ping-pong)
+- Both QPAT and Waldorf .map exporters now read loop points from WAV RIFF SMPL chunks
+- Loop mode only applied if WAV file contains actual loop points from auto-looping
+- Fixed Waldorf .map format issues: sample path format, column ordering, loop start/end swap, sample start/end swap
+- Updated export argument parsing with proper fallback values for script mode
+- Fixed export summary display text ("Samples location" instead of "QPAT location")
+
+**Display Fixes:**
+- Round-robin layers now show correctly in sampling summary even without MIDI control
+- Consistent display format with velocity layers showing proper ranges
+
+**Test Files:**
+- `conf/test/test_velocity_fix.yaml` - 3 velocity layers test
+- `conf/test/test_velocity_rr_fix.yaml` - 3 velocity + 3 round-robin layers test
+
+---
+
+### [DONE] Script Auto-Copy and Batch Processing
+**Status:** FULLY IMPLEMENTED
+**Date:** January 9, 2026
+
+**Features Implemented:**
+- **Script auto-copy**: After successful sampling, the script YAML file is automatically copied to the multisample folder (e.g., `output/MySynth/my_synth.yaml`)
+- **Batch processing**: New `--script-folder` argument processes all YAML files in a folder sequentially
+- **Progress reporting**: Shows "Processing 3/10: my_synth.yaml" during batch operations
+- **Error handling**: Prompts to continue if a script fails during batch processing
+- **Argument preservation**: Passes `--output_folder`, `--export_formats`, `--export_location` to each script
+
+**Benefits:**
+- Scripts serve as documentation of exact sampling parameters
+- Easy reproduction of sampling sessions
+- Overnight batch sampling of multiple patches
+- Regression testing with all test scripts
+
+**Bug Fix:**
+- Script copy destination corrected from samples subfolder to multisample root folder
+- Uses `sampler.multisample_folder` instead of `sampler.output_folder`
+
+**Documentation:**
+- Added to CLI.md (--script and --script-folder sections)
+- Added to SCRIPTING.md (batch processing section with examples)
+- Added to README.md (features and usage examples)
+
+**Test Files Created:**
+- `conf/test/batch_test/batch1_test.yaml`
+- `conf/test/batch_test/batch2_test.yaml`
+
+---
+
 ### [DONE] Waldorf Quantum/Iridium QPAT Format Export
 **Status:** FULLY IMPLEMENTED AND TESTED
 **Location:** `src/export/export_qpat.py`, `doc/EXPORT_FORMATS.md`

@@ -1,0 +1,44 @@
+# Test: Prophet 6 - Simple test (no velocity/RR layers)
+# Interval: 2 semitones, all formats exported
+
+audio:
+  samplerate: 48000
+  bitdepth: 24
+  mono_stereo: stereo
+
+sampling:
+  hold_time: 3.0
+  release_time: 1.5
+  pause_time: 0.5
+  multisample_name: "prophet6-test"
+  velocity_layers: 1
+  roundrobin_layers: 1
+  output_format: "sfz"
+  output_folder: "./output"
+  test_mode: false
+  lowest_note: 0
+  highest_note: 127
+
+sampling_midi:
+  note_range: {start: 36, end: 72, interval: 2}  # C2 to C5, every 2 semitones
+  midi_channels: [0]
+  program_change: null
+  cc_messages: {7: 127}  # Full volume
+
+postprocessing:
+  auto_loop: true
+  loop_min_duration: "50%"
+  loop_crossfade: 50
+  trim_silence: true
+  silence_threshold: -60
+  normalize: false
+
+export:
+  formats:
+    - qpat
+    - waldorf_map
+  qpat:
+    location: 2
+    optimize_audio: false
+  waldorf_map:
+    location: 2

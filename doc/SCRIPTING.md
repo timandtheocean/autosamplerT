@@ -20,7 +20,8 @@ AutosamplerT uses YAML scripts to define sampling sessions. Scripts allow you to
 - **MIDI control**: Send different MIDI messages per layer
 - **Testing**: Quickly test different configurations
 - **Batch sampling**: Create multiple variations of a sampling session
-- **Documentation**: Script files serve as documentation of sampling parameters
+- **Documentation**: Script files serve as documentation of sampling parameters and are auto-copied to output folders
+- **Reproducibility**: Saved script files allow exact reproduction of sampling sessions
 
 ## Script vs Config
 
@@ -553,6 +554,75 @@ python autosamplerT.py --test_mode --script conf/sample_patches.yaml
 - Final summary shows success/failure count
 - Works with all audio settings (ASIO, sample rate, bit depth, etc.)
 - Compatible with postprocessing (`--auto_loop`, `--trim_silence`, etc.)
+- Script file is auto-copied to each patch folder for documentation
+
+## Batch Processing Multiple Scripts
+
+### Using --script-folder
+
+Process all YAML files in a folder sequentially:
+
+```bash
+# Process all test scripts
+python autosamplerT.py --script-folder conf/test
+
+# Process with export options
+python autosamplerT.py --script-folder conf/production \
+  --export_formats qpat,waldorf_map \
+  --export_location 2
+
+# Process with custom output folder
+python autosamplerT.py --script-folder C:\MyScripts \
+  --output_folder D:\Samples
+```
+
+### Features
+
+- **Automatic discovery**: Finds all `.yaml` and `.yml` files
+- **Sequential processing**: Files processed in alphabetical order
+- **Progress reporting**: Shows "Processing 3/10: my_synth.yaml"
+- **Error handling**: Asks to continue if a script fails
+- **Argument preservation**: Passes `--output_folder`, `--export_formats`, `--export_location` to each script
+- **Script documentation**: Each script copied to its multisample folder
+
+### Example Batch Workflow
+
+**Folder structure:**
+```
+conf/production/
+  synth_a_patch1.yaml
+  synth_a_patch2.yaml
+  synth_b_full.yaml
+```
+
+**Run batch:**
+```bash
+python autosamplerT.py --script-folder conf/production
+```
+
+**Output:**
+```
+output/
+  SynthA_Patch1/
+    synth_a_patch1.yaml    # Auto-copied
+    SynthA_Patch1.sfz
+    samples/
+  SynthA_Patch2/
+    synth_a_patch2.yaml    # Auto-copied
+    SynthA_Patch2.sfz
+    samples/
+  SynthB_Full/
+    synth_b_full.yaml      # Auto-copied
+    SynthB_Full.sfz
+    samples/
+```
+
+### Use Cases
+
+- **Overnight sampling**: Queue multiple patches for unattended sampling
+- **Regression testing**: Run all test scripts to verify changes
+- **Multi-synth sessions**: Sample multiple instruments in sequence
+- **Batch export**: Convert multiple multisamples to different formats
 
 ### Example 7: Patch Iteration
 

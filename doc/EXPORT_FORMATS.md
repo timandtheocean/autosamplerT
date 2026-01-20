@@ -4,13 +4,66 @@ AutosamplerT supports exporting multisamples to various hardware and software sa
 
 ## Supported Formats
 
-| Format | Status | Description |
-|--------|--------|-------------|
-| **SFZ** | Native | Native format, always created |
-| **QPAT** | Implemented | Waldorf Quantum/Iridium format |
-| **Ableton** | TODO | Ableton Live Sampler/Simpler |
-| **EXS24** | TODO | Logic Pro EXS24 format |
-| **SXT** | TODO | Native Instruments Kontakt |
+| Format | Status | Description | Features |
+|--------|--------|-------------|----------|
+| **SFZ** | Native | Native format, always created | Loop points |
+| **QPAT** | Implemented | Waldorf Quantum/Iridium format | Loop points, crossfade |
+| **Waldorf .map** | Implemented | Waldorf text-based sample map | Loop points, crossfade |
+| **Ableton** | TODO | Ableton Live Sampler/Simpler | - |
+| **EXS24** | TODO | Logic Pro EXS24 format | - |
+| **SXT** | TODO | Native Instruments Kontakt | - |
+
+## Export Configuration
+
+### Loop Mode and Crossfade Support
+
+Both QPAT and Waldorf .map formats support configurable loop modes and crossfade:
+
+**CLI Usage:**
+```bash
+python autosamplerT.py --export_formats qpat,waldorf_map \
+  --export_loop_mode 1 --export_loop_crossfade 15.0
+```
+
+**YAML Configuration:**
+```yaml
+export:
+  formats:
+    - qpat
+    - waldorf_map
+  loop_crossfade_ms: 12.5  # Global crossfade setting
+  qpat:
+    location: 2
+    loop_mode: 1  # 0=off, 1=forward, 2=ping-pong
+```
+
+**Loop Mode Values:**
+- `0` = Loop disabled
+- `1` = Forward loop (default) 
+- `2` = Ping-pong/bidirectional loop
+
+**Crossfade Time:**
+- Default: `10.0` milliseconds
+- Range: `0.0` (no crossfade) to any positive value
+- Applied only when loop points exist
+- Helps smooth loop transitions
+
+**Important:** Loop mode is only applied if the WAV file contains loop points (from auto-looping). Files without loop points will have loop mode set to 0 (off) regardless of configuration.
+
+### Loop Point Source
+
+Loop points are read from WAV file RIFF SMPL chunks, not SFZ files. This ensures consistency across all export formats:
+
+1. **Auto-looping** writes loop points to WAV metadata during sampling
+2. **Exporters** read loop points from the SMPL chunk
+3. **Compatibility** works with both mono and stereo samples
+4. **Accuracy** correctly normalizes loop points for any sample rate/format
+
+**Fixed Issues (v2026.01.15):**
+- Loop points now work correctly for mono samples (was assuming stereo)
+- Loop start/end values are properly normalized
+- Shared loop reading logic eliminates code duplication  
+3. **Loop ranges** are normalized to 0.0-1.0 for sampler compatibility
 
 ---
 
@@ -147,9 +200,10 @@ The path column uses a location prefix to specify where samples are stored:
 3. **Sample RAM Limit**
    - ~360MB total (converted to 32-bit float internally)
    
-4. **Preferred Audio Format**
-   - 44.1 kHz sample rate (native)
-   - 32-bit float (internal processing)
+4. **Audio Format**
+   - Sample rate: 44.1 kHz (native - recommended) or 48 kHz
+   - Bit depth: 24-bit (recommended) or 32-bit float
+   - Quantum/Iridium converts to 32-bit float internally
    - Supports WAV and AIFF
 
 5. **Auto-Mapping Requirements**
@@ -161,20 +215,20 @@ The path column uses a location prefix to specify where samples are stored:
 
 #### Export from Existing SFZ
 ```bash
-# Basic export (SD card by default)
+# Basic export (SD card, keep original audio format)
 python autosamplerT.py --process MySynth --export_formats qpat
+
+# SD card with audio optimization (convert to 44.1kHz 32-bit float)
+python autosamplerT.py --process MySynth --export_formats qpat --export_optimize_audio
 
 # USB location (triggers auto-import to internal memory)
 python autosamplerT.py --process MySynth --export_formats qpat --export_location 4
-
-# With audio optimization
-python autosamplerT.py --process MySynth --export_formats qpat --export_optimize_audio
 ```
 
 #### Export During Sampling
 ```bash
 # Sample and export to QPAT
-python autosamplerT.py --script conf/my_synth.yaml --export_formats qpat
+python autosamplerT.py --script conf/my_synth.yaml
 ```
 
 #### YAML Configuration
@@ -184,8 +238,21 @@ export:
     - qpat
   qpat:
     location: 2              # 2=SD card (default), 3=internal, 4=USB
-    optimize_audio: true     # Convert to 44.1kHz 32-bit
+    optimize_audio: false    # false=keep original (44.1kHz 24-bit), true=convert to 44.1kHz 32-bit float
 ```
+
+**Audio Optimization Options:**
+- **`optimize_audio: false`** (recommended)
+  - Keeps original sample rate and bit depth (e.g., 44.1kHz 24-bit)
+  - Smaller file sizes
+  - No quality loss from conversion
+  - Waldorf converts to 32-bit internally anyway
+
+- **`optimize_audio: true`**
+  - Converts all samples to 44.1kHz 32-bit float
+  - Larger file sizes
+  - Use if source samples have varying sample rates
+  - Use if experiencing compatibility issues
 
 ### Importing to Quantum/Iridium
 

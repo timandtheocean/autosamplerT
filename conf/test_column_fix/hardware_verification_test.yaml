@@ -1,0 +1,35 @@
+# Column 5 Gain Test - Hardware Verification
+
+This test file verifies that Column 5 now correctly outputs GAIN instead of tune.
+
+name: "Column 5 Gain Verification Test"
+description: "Test Column 5 gain conversion with 3 different volume levels"
+
+# Audio settings
+audio:
+  samplerate: 48000
+  bitdepth: 24
+
+# No MIDI needed for this test
+midi_interface:
+  output_port_name: null
+
+# Sampling configuration - 3 notes with different volumes
+sampling:
+  note_range_start: 60  # C4
+  note_range_end: 62    # D4 (3 notes total)
+  velocity_layers: 1
+  roundrobin_layers: 1
+  hold_time: 2.0
+  release_time: 0.5
+
+# Post-processing - NO volume adjustment here
+postprocessing:
+  normalize: false
+  trim_silence: false
+  # No volume parameter - we'll set this per-note in SFZ
+
+# Export formats
+export:
+  formats:
+    - map

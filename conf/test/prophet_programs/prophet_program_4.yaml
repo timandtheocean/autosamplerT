@@ -1,0 +1,40 @@
+name: "Prophet-06 Program 4"
+description: "Complete sampling of Prophet-06 Program 4 with 3 round-robin layers"
+
+audio:
+  samplerate: 48000
+  bitdepth: 24
+  mono_stereo: mono
+  channel_offset: 2
+
+midi_interface:
+  output_port_name: "Prophet 6"
+  program_change: 4
+
+sampling:
+  note_range_start: 36
+  note_range_end: 96
+  note_range_interval: 1
+  velocity_layers: 1
+  roundrobin_layers: 3
+  hold_time: 5.0
+  release_time: 1.5
+  pause_time: 2.0
+  multisample_name: prophet_program_4
+  auto_looping: true
+
+postprocessing:
+  auto_loop: true
+  loop_mode: ping-pong
+  loop_min_duration: "50%"
+  trim_silence: true
+
+export:
+  formats:
+    - qpat
+    - waldorf_map
+  qpat:
+    location: 2
+    optimize_audio: true
+  waldorf_map:
+    location: 2

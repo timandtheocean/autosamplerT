@@ -104,7 +104,7 @@ Enter input device number (or 'skip' to keep current): skip
 
 ### ASIO Multi-Channel Devices
 
-ASIO devices with multiple channel pairs (4, 6, 8 channels) are fully supported. Use the `--channel_offset` argument to select which stereo pair to record from.
+ASIO devices with multiple channel pairs (4, 6, 8 channels) are fully supported. Use the `input_channels` configuration to select which stereo pair to record from.
 
 **Supported Audio APIs:**
 - **ASIO**: Professional low-latency audio (requires SD_ENABLE_ASIO=1 environment variable)
@@ -117,47 +117,50 @@ ASIO devices with multiple channel pairs (4, 6, 8 channels) are fully supported.
 
 For a 4-channel ASIO device like "Audio 4 DJ":
 - Device shows as single device with 4 input channels
-- Channels 0-1: Ch A (In 1|2)
-- Channels 2-3: Ch B (In 3|4)
+- Inputs 1-2: Ch A
+- Inputs 3-4: Ch B
 
-**Examples:**
+**YAML Configuration Examples:**
 
-```bash
-# Record from Ch A (channels 0-1) in stereo
-python autosamplerT.py --channel_offset 0 ...
+```yaml
+# Record from inputs 1-2 in stereo
+audio:
+  input_channels: "1-2"
+  mono_stereo: stereo
 
-# Record from Ch B (channels 2-3) in stereo  
-python autosamplerT.py --channel_offset 2 ...
+# Record from inputs 3-4 in stereo
+audio:
+  input_channels: "3-4"
+  mono_stereo: stereo
 
-# Record from Ch B left channel only (channel 2) in mono
-python autosamplerT.py --channel_offset 2 --mono_stereo mono --mono_channel 0 ...
+# Record from input 3 only (left of 3-4 pair) in mono
+audio:
+  input_channels: "3-4"
+  mono_stereo: mono
+  mono_channel: 0
 
-# Record from Ch B right channel only (channel 3) in mono
-python autosamplerT.py --channel_offset 2 --mono_stereo mono --mono_channel 1 ...
+# Record from input 4 only (right of 3-4 pair) in mono
+audio:
+  input_channels: "3-4"
+  mono_stereo: mono
+  mono_channel: 1
 ```
 
-**Channel Offset Values:**
-- `0` = Channels 0-1 (first stereo pair)
-- `2` = Channels 2-3 (second stereo pair)
-- `4` = Channels 4-5 (third stereo pair, for 6/8-channel devices)
-- `6` = Channels 6-7 (fourth stereo pair, for 8-channel devices)
+**Available Input Pairs:**
+- `"1-2"` = Inputs 1-2 (first stereo pair)
+- `"3-4"` = Inputs 3-4 (second stereo pair)
+- `"5-6"` = Inputs 5-6 (third stereo pair, for 6/8-channel devices)
+- `"7-8"` = Inputs 7-8 (fourth stereo pair, for 8-channel devices)
 
-**How It Works:**
+**Main Configuration File:**
 
-1. AutosamplerT detects if the device is ASIO and has multiple channels
-2. Uses `sounddevice.AsioSettings` to select specific channels
-3. Records only the requested channel pair (no wasted bandwidth)
-4. Works with both stereo pairs and individual mono channels
-
-**YAML Configuration:**
+In `conf/autosamplerT_config.yaml`:
 
 ```yaml
 audio_interface:
   input_device_index: 16        # ASIO device
   output_device_index: 16
-  channel_offset: 2             # Record from Ch B (channels 2-3)
-  mono_stereo: stereo           # Or 'mono' for single channel
-  mono_channel: 0               # 0=left, 1=right (within selected pair)
+  input_channels: "3-4"         # Record from inputs 3-4
   samplerate: 44100
   bitdepth: 24
 ```

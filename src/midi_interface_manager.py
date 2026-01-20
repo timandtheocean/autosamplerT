@@ -44,26 +44,26 @@ class MidiInterfaceManager:
 def main() -> None:
     """Main function to demonstrate MIDI interface manager."""
     manager = MidiInterfaceManager()
-    
+
     try:
         # Load config
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, 'r') as f:
                 config = yaml.safe_load(f)
             midi_conf = config.get('midi_interface', {})
-            
+
             # List devices
             inputs, outputs = manager.list_midi_devices()
-            
+
             # Set devices from config
             midi_input = midi_conf.get('midi_input_name')
             midi_output = midi_conf.get('midi_output_name')
-            
+
             if midi_input:
                 manager.set_midi_input(midi_input)
             if midi_output:
                 manager.set_midi_output(midi_output)
-            
+
             manager.verify_settings()
         else:
             logging.warning(f"Config file not found: {CONFIG_FILE}")

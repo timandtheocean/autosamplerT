@@ -98,6 +98,111 @@ python autosamplerT.py --script C:\Users\me\scripts\test.yaml
 4. Prompts for confirmation
 5. Executes sampling session
 6. Generates output files (WAV + SFZ)
+7. Copies script file to multisample folder for documentation
+
+**Script Auto-Copy:**
+
+After successful sampling, the script YAML file is automatically copied to the multisample folder:
+
+```
+output/
+  MySynth/
+    my_synth.yaml         # Auto-copied script file
+    MySynth.sfz           # Generated SFZ file
+    samples/              # Sample folder
+      MySynth_C4_v127.wav
+      ...
+```
+
+This documents the exact parameters used to create the multisample.
+
+---
+
+### `--script-folder <path>`
+
+Process all YAML files in a folder sequentially (batch processing).
+
+**Syntax:**
+```bash
+python autosamplerT.py --script-folder <path/to/folder>
+```
+
+**Path:** Relative to workspace root or absolute path.
+
+**Examples:**
+```bash
+# Process all test scripts
+python autosamplerT.py --script-folder conf/test
+
+# Process production scripts with custom export
+python autosamplerT.py --script-folder conf/production --export_formats qpat,waldorf_map
+
+# Process with custom output folder
+python autosamplerT.py --script-folder C:\MyScripts --output_folder D:\Samples
+```
+
+**What it does:**
+1. Finds all `.yaml` and `.yml` files in the folder
+2. Processes them in alphabetical order
+3. Each script runs as if you called `python autosamplerT.py --script <file.yaml>`
+4. Preserves these arguments:
+   - `--output_folder`
+   - `--export_formats`
+   - `--export_location`
+   - `--export_loop_mode`
+   - `--export_loop_crossfade`
+5. Shows progress: "Processing 3/10: my_synth.yaml"
+6. Asks to continue if a script fails
+7. Copies each script to its multisample folder
+8. Reports final summary
+
+**Output:**
+```
+=== AutosamplerT - Batch Processing ===
+Found 3 YAML file(s) in: conf/test
+
+================================================================================
+Processing 1/3: test_synth_a.yaml
+================================================================================
+
+[... sampling output ...]
+
+[SUCCESS] Script test_synth_a.yaml completed successfully
+
+================================================================================
+Processing 2/3: test_synth_b.yaml
+================================================================================
+
+[... sampling output ...]
+
+[SUCCESS] Script test_synth_b.yaml completed successfully
+
+================================================================================
+Processing 3/3: test_synth_c.yaml
+================================================================================
+
+[... sampling output ...]
+
+[SUCCESS] Script test_synth_c.yaml completed successfully
+
+================================================================================
+Batch processing complete: 3 file(s) processed
+================================================================================
+```
+
+**Error Handling:**
+
+If a script fails, you'll be prompted:
+```
+[WARNING] Script test_synth_b.yaml failed with return code 1
+Continue with remaining scripts? (y/n):
+```
+
+**Use Cases:**
+- Sample multiple patches overnight
+- Process all test configurations
+- Batch export multiple multisamples to different formats
+- Run regression tests
 
 **Output:**
 ```
@@ -392,6 +497,17 @@ python autosamplerT.py --script conf/test/test_roundrobin_cc.yaml
 ```
 
 ### Batch Multiple Scripts
+
+**Recommended: Use --script-folder**
+```bash
+# Process all scripts in folder
+python autosamplerT.py --script-folder conf/production
+
+# With export options
+python autosamplerT.py --script-folder conf/test --export_formats qpat,waldorf_map --export_loop_crossfade 12.5
+```
+
+**Alternative: Shell loops**
 ```bash
 # Windows PowerShell
 Get-ChildItem conf\production\*.yaml | ForEach-Object {

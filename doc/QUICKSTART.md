@@ -131,6 +131,38 @@ Edit `conf/autosamplerT_script.yaml` with your settings, then run:
 python autosamplerT.py --script conf/autosamplerT_script.yaml
 ```
 
+**Script Auto-Copy:**
+
+After successful sampling, the script is automatically copied to the output folder:
+
+```
+output/
+  MySynth/
+    autosamplerT_script.yaml  # Auto-copied for documentation
+    MySynth.sfz
+    samples/
+      MySynth_C4_v127.wav
+      ...
+```
+
+This documents the exact parameters used and allows reproduction of the sampling session.
+
+**Batch Processing:**
+
+Process all YAML files in a folder:
+
+```bash
+# Process all test scripts
+python autosamplerT.py --script-folder conf/test
+
+# Process with export options
+python autosamplerT.py --script-folder conf/production \
+  --export_formats qpat,waldorf_map \
+  --export_location 2
+```
+
+See [Scripting System](SCRIPTING.md) for complete YAML reference.
+
 ## Output Files
 
 After sampling, check the `./output/` folder:

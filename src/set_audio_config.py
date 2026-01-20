@@ -33,14 +33,14 @@ def get_available_driver_types() -> List[Tuple[int, str]]:
 def select_driver_type() -> Tuple[int, str]:
     """Let user select audio driver type."""
     driver_types = get_available_driver_types()
-    
+
     print("\n" + "="*70)
     print("AUDIO DRIVER SELECTION")
     print("="*70)
     print("\nAvailable audio driver types:")
     for idx, (api_idx, name) in enumerate(driver_types, 1):
         print(f"  {idx}. {name}")
-    
+
     while True:
         try:
             choice = input(f"\nSelect driver type (1-{len(driver_types)}): ").strip()
@@ -60,12 +60,12 @@ def select_driver_type() -> Tuple[int, str]:
 def get_asio_channel_pairs(device_idx: int) -> List[Tuple[int, str]]:
     """
     Get list of stereo channel pairs for an ASIO device.
-    
+
     Returns list of (offset, description) tuples.
     """
     device_info = sd.query_devices(device_idx)
     max_channels = device_info['max_input_channels']
-    
+
     pairs = []
     for offset in range(0, max_channels, 2):
         if offset + 1 < max_channels:
@@ -85,29 +85,29 @@ def get_asio_channel_pairs(device_idx: int) -> List[Tuple[int, str]]:
         elif offset < max_channels:
             # Single channel (odd number of channels)
             pairs.append((offset, f"Channel {offset} (mono)"))
-    
+
     return pairs
 
 
 def select_asio_device_and_channels(api_idx: int) -> Tuple[Optional[int], Optional[int], Optional[int], Optional[int]]:
     """
     Select ASIO device and channel pairs.
-    
+
     Returns: (device_idx, input_channel_offset, device_idx, output_channel_offset)
     """
     devices = sd.query_devices()
     host_apis = sd.query_hostapis()
-    
+
     # Find ASIO devices
     asio_devices = []
     for idx, dev in enumerate(devices):
         if dev['hostapi'] == api_idx:
             asio_devices.append((idx, dev['name'], dev['max_input_channels'], dev['max_output_channels']))
-    
+
     if not asio_devices:
         print("\n⚠️  No ASIO devices found!")
         return None, None, None, None
-    
+
     # Show ASIO devices
     print("\n" + "="*70)
     print("ASIO DEVICE SELECTION")
@@ -116,7 +116,7 @@ def select_asio_device_and_channels(api_idx: int) -> Tuple[Optional[int], Option
     for list_idx, (dev_idx, name, in_ch, out_ch) in enumerate(asio_devices, 1):
         print(f"  {list_idx}. {name}")
         print(f"     Input channels: {in_ch}, Output channels: {out_ch}")
-    
+
     # Select device
     while True:
         try:
@@ -132,7 +132,7 @@ def select_asio_device_and_channels(api_idx: int) -> Tuple[Optional[int], Option
                 print(f"Invalid selection. Please enter 1-{len(asio_devices)}.")
         except ValueError:
             print("Please enter a valid number.")
-    
+
     # Select input channel pair
     input_offset = 0
     if in_channels > 2:
@@ -144,7 +144,7 @@ def select_asio_device_and_channels(api_idx: int) -> Tuple[Optional[int], Option
         print("Available input channel pairs:")
         for list_idx, (offset, desc) in enumerate(input_pairs, 1):
             print(f"  {list_idx}. {desc}")
-        
+
         while True:
             try:
                 choice = input(f"\nSelect input channel pair (1-{len(input_pairs)}) [1]: ").strip()
@@ -161,7 +161,7 @@ def select_asio_device_and_channels(api_idx: int) -> Tuple[Optional[int], Option
                 print("Please enter a valid number.")
     else:
         print(f"\nInput: Using default channels 0-1 (device has {in_channels} input channels)")
-    
+
     # Select output channel pair
     output_offset = 0
     if out_channels > 2:
@@ -179,12 +179,12 @@ def select_asio_device_and_channels(api_idx: int) -> Tuple[Optional[int], Option
                     elif offset == 2:
                         desc += " (Ch B / Out 3|4)"
                 output_pairs.append((offset, desc))
-        
+
         print(f"\nDevice has {out_channels} output channels")
         print("Available output channel pairs:")
         for list_idx, (offset, desc) in enumerate(output_pairs, 1):
             print(f"  {list_idx}. {desc}")
-        
+
         while True:
             try:
                 choice = input(f"\nSelect output channel pair (1-{len(output_pairs)}) [1]: ").strip()
@@ -201,30 +201,30 @@ def select_asio_device_and_channels(api_idx: int) -> Tuple[Optional[int], Option
                 print("Please enter a valid number.")
     else:
         print(f"\nOutput: Using default channels 0-1 (device has {out_channels} output channels)")
-    
+
     return device_idx, input_offset, device_idx, output_offset
 
 
 def select_standard_devices(api_idx: int) -> Tuple[Optional[int], Optional[int]]:
     """
     Select devices for standard (non-ASIO) drivers.
-    
+
     Returns: (input_device_idx, output_device_idx)
     """
     devices = sd.query_devices()
     host_apis = sd.query_hostapis()
-    
+
     # Filter devices by selected host API
     filtered_output = []
     filtered_input = []
-    
+
     for idx, dev in enumerate(devices):
         if dev['hostapi'] == api_idx:
             if dev['max_output_channels'] > 0:
                 filtered_output.append((idx, dev['name'], dev['max_output_channels']))
             if dev['max_input_channels'] > 0:
                 filtered_input.append((idx, dev['name'], dev['max_input_channels']))
-    
+
     # Select output device
     output_idx = None
     if filtered_output:
@@ -234,7 +234,7 @@ def select_standard_devices(api_idx: int) -> Tuple[Optional[int], Optional[int]]
         print("\nAvailable output devices:")
         for list_idx, (dev_idx, name, channels) in enumerate(filtered_output, 1):
             print(f"  {list_idx}. {name} (channels: {channels})")
-        
+
         while True:
             try:
                 choice = input(f"\nSelect output device (1-{len(filtered_output)}): ").strip()
@@ -249,7 +249,7 @@ def select_standard_devices(api_idx: int) -> Tuple[Optional[int], Optional[int]]
                     print(f"Invalid selection. Please enter 1-{len(filtered_output)}.")
             except ValueError:
                 print("Please enter a valid number.")
-    
+
     # Select input device
     input_idx = None
     if filtered_input:
@@ -260,7 +260,7 @@ def select_standard_devices(api_idx: int) -> Tuple[Optional[int], Optional[int]]
         print("\nAvailable input devices:")
         for list_idx, (dev_idx, name, channels) in enumerate(filtered_input, 1):
             print(f"  {list_idx}. {name} (channels: {channels})")
-        
+
         while True:
             try:
                 choice = input(f"\nSelect input device (1-{len(filtered_input)}): ").strip()
@@ -275,14 +275,14 @@ def select_standard_devices(api_idx: int) -> Tuple[Optional[int], Optional[int]]
                     print(f"Invalid selection. Please enter 1-{len(filtered_input)}.")
             except ValueError:
                 print("Please enter a valid number.")
-    
+
     return input_idx, output_idx
 
 
 def configure_audio_parameters(input_idx: Optional[int]) -> Tuple[int, int]:
     """
     Configure sample rate and bit depth.
-    
+
     Returns: (samplerate, bitdepth)
     """
     # Get default sample rate from device
@@ -291,25 +291,25 @@ def configure_audio_parameters(input_idx: Optional[int]) -> Tuple[int, int]:
         default_samplerate = int(input_info.get('default_samplerate', 44100))
     else:
         default_samplerate = 44100
-    
+
     print("\n" + "="*70)
     print("AUDIO PARAMETERS")
     print("="*70)
-    
+
     # Sample rate
     supported_samplerates = [44100, 48000, 88200, 96000, 192000]
     print(f"\nSupported sample rates: {supported_samplerates}")
     print(f"Device default: {default_samplerate} Hz")
     samplerate_in = input(f"Enter sample rate [{default_samplerate}]: ").strip()
     samplerate = int(samplerate_in) if samplerate_in else default_samplerate
-    
+
     # Bit depth
     supported_bitdepths = [16, 24, 32]
     default_bitdepth = 24
     print(f"\nSupported bit depths: {supported_bitdepths}")
     bitdepth_in = input(f"Enter bit depth [{default_bitdepth}]: ").strip()
     bitdepth = int(bitdepth_in) if bitdepth_in else default_bitdepth
-    
+
     return samplerate, bitdepth
 
 
@@ -319,13 +319,13 @@ def main():
     print("="*70)
     print("AUDIO INTERFACE CONFIGURATION WIZARD")
     print("="*70)
-    
+
     # Step 1: Select driver type
     api_idx, api_name = select_driver_type()
-    
+
     # Step 2: Select devices (different flow for ASIO vs others)
     is_asio = 'ASIO' in api_name.upper()
-    
+
     if is_asio:
         # ASIO: Select device and channel pairs
         device_idx, input_offset, _, output_offset = select_asio_device_and_channels(api_idx)
@@ -339,33 +339,36 @@ def main():
         input_idx, output_idx = select_standard_devices(api_idx)
         input_offset = 0
         output_offset = 0
-    
+
     # Step 3: Configure audio parameters
     samplerate, bitdepth = configure_audio_parameters(input_idx)
-    
+
     # Step 4: Save configuration
     config = {}
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, 'r') as f:
             config = yaml.safe_load(f) or {}
-    
+
     config['audio_interface'] = {
         'input_device_index': input_idx,
         'output_device_index': output_idx,
         'samplerate': samplerate,
         'bitdepth': bitdepth
     }
-    
-    # Add channel_offset for ASIO devices
+
+    # Add input_channels for ASIO devices (user-friendly format)
     if is_asio and input_offset is not None:
-        config['audio_interface']['channel_offset'] = input_offset
-    
+        # Convert offset to channel pair description (e.g., 0 -> "1-2", 2 -> "3-4")
+        first_channel = input_offset + 1
+        second_channel = input_offset + 2
+        config['audio_interface']['input_channels'] = f"{first_channel}-{second_channel}"
+
     if 'midi_interface' not in config:
         config['midi_interface'] = {'midi_input_name': None, 'midi_output_name': None}
-    
+
     with open(CONFIG_FILE, 'w') as f:
         yaml.dump(config, f)
-    
+
     # Summary
     print("\n" + "="*70)
     print("CONFIGURATION SUMMARY")

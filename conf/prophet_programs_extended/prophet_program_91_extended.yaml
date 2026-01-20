@@ -1,0 +1,35 @@
+name: Prophet Program 91 Extended
+description: Prophet 6 Program 91 - Every 5 semitones, 6 RR layers, 7s sampling
+output:
+  multisample_name: Prophet_Program_91_Extended
+audio:
+  samplerate: 44100
+  bitdepth: 24
+  mono_stereo: mono
+midi_interface:
+  output_port_name: Prophet 6
+  program_change: 91
+sampling:
+  note_range_start: 36
+  note_range_end: 96
+  note_range_interval: 5
+  velocity_layers: 1
+  roundrobin_layers: 6
+  hold_time: 7.0
+  release_time: 2.0
+  pause_time: 2.0
+postprocessing:
+  auto_loop: true
+  loop_crossfade_percent: 10
+  trim_silence: true
+  silence_detection: auto
+  silence_threshold: -60.0
+export:
+  formats:
+  - qpat
+  - waldorf_map
+  qpat:
+    location: 2
+    optimize_audio: true
+  waldorf_map:
+    location: 2

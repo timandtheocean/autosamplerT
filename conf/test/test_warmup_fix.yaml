@@ -1,0 +1,36 @@
+name: "Warm-up Test"
+description: "Test warm-up sequence fix for low-level first sample"
+
+audio:
+  samplerate: 48000
+  bitdepth: 24
+  mono_stereo: mono
+  channel_offset: 2
+
+midi_interface:
+  output_port_name: "Prophet 6"
+
+sampling:
+  note_range_start: 36
+  note_range_end: 40
+  note_range_interval: 1
+  velocity_layers: 1
+  roundrobin_layers: 3
+  hold_time: 2.0
+  release_time: 1.0
+  pause_time: 1.0
+  multisample_name: warmup-test
+  auto_looping: false
+
+postprocessing:
+  trim_silence: true
+
+export:
+  formats:
+    - qpat
+    - waldorf_map
+  qpat:
+    location: 2
+    optimize_audio: true
+  waldorf_map:
+    location: 2

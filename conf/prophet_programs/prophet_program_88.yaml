@@ -1,0 +1,47 @@
+name: "Prophet Program 88"
+description: "Prophet 6 Program 88 - Every 5 semitones, 3 RR layers"
+
+# Output settings
+output:
+  multisample_name: "Prophet_Program_88"
+
+# Audio settings
+audio:
+  samplerate: 44100
+  bitdepth: 24
+  mono_stereo: mono
+
+# MIDI interface
+midi_interface:
+  output_port_name: "Prophet 6"
+  program_change: 88
+
+# Sampling configuration  
+sampling:
+  note_range_start: 36    # C2
+  note_range_end: 96      # C7
+  note_range_interval: 5  # Every 5 semitones
+  velocity_layers: 1      # Single velocity
+  roundrobin_layers: 3    # 3 round-robin layers
+  hold_time: 4.0          # 4 seconds sampling
+  release_time: 2.0       # 2 seconds release/pause
+  pause_time: 2.0         # 2 seconds pause between samples
+
+# Post-processing
+postprocessing:
+  auto_loop: true
+  loop_crossfade_percent: 10  # 10% crossfade
+  trim_silence: true
+  silence_detection: auto     # "auto" (detect noise floor) or "manual" (use threshold)
+  silence_threshold: -60.0    # Manual threshold in dB (used when silence_detection: manual)
+
+# Export formats
+export:
+  formats:
+    - qpat
+    - waldorf_map  # Creates .map file for Waldorf
+  qpat:
+    location: 2  # SD card
+    optimize_audio: true
+  waldorf_map:
+    location: 2  # SD card

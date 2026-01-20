@@ -1,0 +1,63 @@
+# Example: Auto Silence Detection (Recommended)
+# This mode records 2 seconds of silence from the synth before sampling
+# to detect the actual noise floor of your signal chain
+
+name: "Example Auto Silence Detection"
+audio:
+  samplerate: 48000
+  bitdepth: 24
+  mono_stereo: stereo
+
+midi_interface:
+  output_port_name: "Your Synth"
+
+sampling:
+  note_range_start: 36
+  note_range_end: 72
+  note_range_interval: 1
+  velocity_layers: 1
+  roundrobin_layers: 1
+  hold_time: 3.0
+  release_time: 1.5
+
+postprocessing:
+  trim_silence: true
+  silence_detection: auto         # Records silence to detect noise floor
+  silence_threshold: -60.0        # Ignored in auto mode
+  auto_loop: true
+
+export:
+  formats:
+    - qpat
+---
+
+# Example: Manual Silence Detection
+# This mode uses a fixed threshold that you specify
+
+name: "Example Manual Silence Detection"
+audio:
+  samplerate: 48000
+  bitdepth: 24
+  mono_stereo: stereo
+
+midi_interface:
+  output_port_name: "Your Synth"
+
+sampling:
+  note_range_start: 36
+  note_range_end: 72
+  note_range_interval: 1
+  velocity_layers: 1
+  roundrobin_layers: 1
+  hold_time: 3.0
+  release_time: 1.5
+
+postprocessing:
+  trim_silence: true
+  silence_detection: manual       # Use fixed threshold
+  silence_threshold: -50.0        # Threshold in dB
+  auto_loop: true
+
+export:
+  formats:
+    - qpat

@@ -1,0 +1,43 @@
+# Prophet 6 Octave Test - One Sample Per Octave
+# This script samples one note per octave across the full keyboard range
+# for quick testing of the Prophet 6 sampling workflow
+
+name: "Prophet Octave Test"
+description: "Sample one note per octave for quick Prophet 6 testing"
+
+# Audio settings - match main config
+audio:
+  samplerate: 44100
+  bitdepth: 24
+  mono_stereo: stereo
+
+# MIDI interface - Prophet 6 setup
+midi_interface:
+  output_port_name: "Prophet 6 1"
+  input_port_name: "Prophet 6 0"
+  midi_channel: 1
+  cc_messages:
+    7: 127  # Volume full
+  program_change: 1  # Use program 1
+
+# Sampling configuration - one sample per octave
+sampling:
+  note_range_start: 24   # C1
+  note_range_end: 96     # C7  
+  note_range_interval: 12  # 12 semitones = 1 octave
+  velocity_layers: 1
+  roundrobin_layers: 1
+  hold_time: 2.0
+  release_time: 1.0
+  pause_time: 0.5
+
+# Post-processing
+postprocessing:
+  auto_loop: false
+  trim_silence: false
+  normalize: false
+
+# Export settings
+export:
+  formats:
+    - sfz

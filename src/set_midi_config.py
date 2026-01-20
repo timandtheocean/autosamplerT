@@ -26,55 +26,44 @@ def list_midi_devices() -> (List[str], List[str]):
     print("========================\n")
     return inputs, outputs
 
-def _match_device(devices: List[str], token: str) -> Optional[str]:
-    """Fuzzy match a device by substring or exact name."""
-    token_lower = token.lower()
-    # Exact match first
-    for d in devices:
-        if d.lower() == token_lower:
-            return d
-    # Substring match
-    matches = [d for d in devices if token_lower in d.lower()]
-    if len(matches) == 1:
-        return matches[0]
-    return None
-
-def get_user_selection(devices: List[str], prompt: str, allow_skip: bool = True) -> Optional[str]:
+def get_user_selection(devices: List[str], device_type: str, allow_skip: bool = True) -> Optional[str]:
     """
     Interactive selection supporting:
       - numeric index
-      - exact or substring name
-      - 'list' to reprint devices
-      - 'skip' to skip selection (if allow_skip)
       - empty entry to skip (if allow_skip)
     Returns selected device name or None if skipped.
     """
     if not devices:
         return None
+    
+    # Show available devices for this type
+    print(f"\nAvailable {device_type} devices:")
+    for idx, name in enumerate(devices):
+        print(f"  [{idx}] {name}")
+    
     while True:
+        prompt = f"Select {device_type} (enter index"
+        if allow_skip:
+            prompt += ", or press Enter to skip"
+        prompt += "): "
+        
         raw = input(prompt).strip()
+        
         if allow_skip and raw == "":
-            print("(skipped)")
+            print(f"({device_type} skipped)")
             return None
-        if allow_skip and raw.lower() == "skip":
-            print("(skipped)")
-            return None
-        if raw.lower() == "list":
-            list_midi_devices()
-            continue
+        
         # Try numeric index
         if raw.isdigit():
             idx = int(raw)
             if 0 <= idx < len(devices):
-                return devices[idx]
-            print(f"Invalid index {idx}. Range 0-{len(devices)-1}.")
+                selected = devices[idx]
+                print(f"Selected: [{idx}] {selected}")
+                return selected
+            print(f"Invalid index {idx}. Valid range: 0-{len(devices)-1}")
             continue
-        # Try fuzzy/name match
-        matched = _match_device(devices, raw)
-        if matched:
-            return matched
         else:
-            print("No unique match for input. Type 'list' to show devices, or enter index.")
+            print(f"Please enter a number (0-{len(devices)-1})")
 
 def main():
     inputs, outputs = list_midi_devices()
@@ -86,8 +75,8 @@ def main():
     if not outputs:
         print("Warning: No MIDI OUTPUT devices detected. Output will be left unset.")
 
-    input_name = get_user_selection(inputs, "Select MIDI INPUT (index/name, blank to skip): ")
-    output_name = get_user_selection(outputs, "Select MIDI OUTPUT (index/name, blank to skip): ")
+    input_name = get_user_selection(inputs, "MIDI INPUT")
+    output_name = get_user_selection(outputs, "MIDI OUTPUT")
 
     # Load existing config if present
     config = {}
