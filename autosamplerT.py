@@ -79,6 +79,8 @@ def get_arg_parser() -> argparse.ArgumentParser:
                            help='Show help for main, audio, midi, sampling, postprocessing, or examples')
     main_group.add_argument('--batch', action='store_true',
                            help=argparse.SUPPRESS)  # Hidden flag for internal batch processing
+    main_group.add_argument('--wavetable', action='store_true',
+                           help='Create wavetables by sampling parameter sweeps')
 
     # Audio options
     audio = parser.add_argument_group('audio', 'Audio interface options')
@@ -330,6 +332,12 @@ def main() -> None:
     if args.help is not None:
         show_help(parser, args.help)
         sys.exit(0)
+
+    # Handle wavetable mode
+    if args.wavetable:
+        from src.wavetable_mode import run_wavetable_mode
+        success = run_wavetable_mode(args)
+        sys.exit(0 if success else 1)
 
     # Load config
     config_path = args.config

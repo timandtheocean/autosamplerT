@@ -1,0 +1,41 @@
+"""
+Wavetable creation configuration
+"""
+
+# Default wavetable settings
+wavetable_defaults:
+  # Audio settings
+  bit_depth: 24  # 8, 16, or 24 bit
+  
+  # Wavetable parameters  
+  samples_per_waveform: 2048  # 128, 512, 1024, 2048, 4096
+  number_of_waves: 64  # Max 256 (or 217 for 4096 samples)
+  
+  # Output settings
+  output_folder: "./output/wavetables"
+  name_prefix: "wavetable"
+  
+  # MIDI learn timeouts
+  learn_timeout: 30.0  # seconds
+  range_timeout: 60.0  # seconds
+  
+  # Sampling settings
+  hold_time_before: 0.5  # seconds before sweep
+  hold_time_after: 0.5   # seconds after sweep
+  
+# Example wavetable configurations
+examples:
+  basic_filter_sweep:
+    name: "basic_filter"
+    samples_per_waveform: 2048
+    number_of_waves: 64
+    
+  high_resolution:
+    name: "high_res" 
+    samples_per_waveform: 4096
+    number_of_waves: 128
+    
+  low_memory:
+    name: "compact"
+    samples_per_waveform: 512
+    number_of_waves: 32
