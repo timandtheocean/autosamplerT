@@ -13,8 +13,8 @@ from typing import Dict, Optional
 
 from .wavetable import MIDILearn, WaveCalculator, WavetableSampler
 from .sampler_midicontrol import MIDIController
-from .audio_interface_manager import AudioInterfaceManager
-from .midi_interface_manager import MIDIInterfaceManager
+from .sampling.audio_engine import AudioEngine
+from .midi_interface_manager import MidiInterfaceManager
 
 
 def run_wavetable_mode(args) -> bool:
@@ -37,14 +37,14 @@ def run_wavetable_mode(args) -> bool:
             return False
         
         # Initialize interfaces
-        audio_manager, midi_manager, midi_controller = initialize_interfaces(config)
-        if not audio_manager:
+        audio_engine, midi_manager, midi_controller = initialize_interfaces(config)
+        if not audio_engine:
             return False
         
-        # Get audio device info
-        audio_device_index = config.get('audio_interface', {}).get('input_device_index', 0)
-        sample_rate = config.get('audio_interface', {}).get('samplerate', 44100)
-        bit_depth = config.get('audio_interface', {}).get('bitdepth', 24)
+        # Get audio device info from the audio engine
+        audio_device_index = audio_engine.device_index
+        sample_rate = audio_engine.sample_rate
+        bit_depth = audio_engine.bit_depth
         
         # Initialize wavetable sampler
         wavetable_sampler = WavetableSampler(
@@ -78,28 +78,36 @@ def run_wavetable_workflow(sampler: WavetableSampler, config: Dict,
             return False
         
         # MIDI Learn workflow
-        if midi_manager and midi_manager.midi_input_port:
+        if midi_manager and midi_manager.input_name:
             print("\\n=== MIDI Learn ===")
-            midi_learn = MIDILearn(midi_manager.midi_input_port)
             
-            # Learn control
-            control_info = midi_learn.learn_control()
-            if not control_info:
-                print("✗ MIDI learn failed - cannot continue")
+            # Open MIDI input port for learning
+            try:
+                import mido
+                with mido.open_input(midi_manager.input_name) as midi_input_port:
+                    midi_learn = MIDILearn(midi_input_port)
+                    
+                    # Learn control
+                    control_info = midi_learn.learn_control()
+                    if not control_info:
+                        print("✗ MIDI learn failed - cannot continue")
+                        return False
+                    
+                    # Learn range
+                    control_range = midi_learn.learn_range(control_info)
+                    if not control_range:
+                        print("✗ Range learning failed - cannot continue")
+                        return False
+                    
+                    # Update config with learned control
+                    wavetable_config['control'] = {
+                        **control_info,
+                        'min_value': control_range[0],
+                        'max_value': control_range[1]
+                    }
+            except Exception as e:
+                print(f"✗ MIDI learn failed: {e}")
                 return False
-            
-            # Learn range
-            control_range = midi_learn.learn_range(control_info)
-            if not control_range:
-                print("✗ Range learning failed - cannot continue")
-                return False
-            
-            # Update config with learned control
-            wavetable_config['control'] = {
-                **control_info,
-                'min_value': control_range[0],
-                'max_value': control_range[1]
-            }
         else:
             print("\\n⚠ No MIDI input available - skipping MIDI learn")
             # Use default control (CC1)
@@ -257,15 +265,26 @@ def load_wavetable_config(args) -> Optional[Dict]:
 def initialize_interfaces(config: Dict) -> tuple:
     """Initialize audio and MIDI interfaces."""
     try:
-        # Initialize audio interface
+        # Initialize audio engine directly
         audio_config = config.get('audio_interface', {})
-        audio_manager = AudioInterfaceManager()
         
-        if not audio_manager.initialize_interface(audio_config):
-            print("✗ Failed to initialize audio interface")
-            return None, None, None
+        # Parse input channels
+        input_channels_str = audio_config.get('input_channels', '1-2')
+        if '-' in input_channels_str:
+            start_ch, end_ch = input_channels_str.split('-')
+            channel_offset = int(start_ch) - 1  # Convert to 0-based
+        else:
+            channel_offset = 0
         
-        print(f"✓ Audio interface initialized")
+        audio_engine = AudioEngine(
+            device_index=audio_config.get('input_device_index', 0),
+            sample_rate=audio_config.get('samplerate', 44100),
+            bit_depth=audio_config.get('bitdepth', 24),
+            channels=2,  # Stereo
+            channel_offset=channel_offset
+        )
+        
+        print(f"✓ Audio engine initialized")
         
         # Initialize MIDI interface (optional)
         midi_config = config.get('midi_interface', {})
@@ -273,19 +292,28 @@ def initialize_interfaces(config: Dict) -> tuple:
         midi_controller = None
         
         if midi_config:
-            midi_manager = MIDIInterfaceManager()
-            if midi_manager.initialize_interface(midi_config):
+            midi_manager = MidiInterfaceManager()
+            
+            # Set up MIDI input/output if configured
+            if 'midi_input_name' in midi_config:
+                midi_manager.set_midi_input(midi_config['midi_input_name'])
+            if 'midi_output_name' in midi_config:
+                midi_manager.set_midi_output(midi_config['midi_output_name'])
+            
+            midi_manager.verify_settings()
+            
+            if hasattr(midi_manager, 'midi_output_port') and midi_manager.midi_output_port:
                 midi_controller = MIDIController(
                     midi_manager.midi_output_port,
-                    midi_manager.midi_input_port
+                    getattr(midi_manager, 'midi_input_port', None)
                 )
                 print(f"✓ MIDI interface initialized")
             else:
-                print("⚠ MIDI interface initialization failed - continuing without MIDI")
+                print("⚠ MIDI interface setup failed - continuing without MIDI")
         else:
             print("⚠ No MIDI configuration - continuing without MIDI")
         
-        return audio_manager, midi_manager, midi_controller
+        return audio_engine, midi_manager, midi_controller
         
     except Exception as e:
         logging.error(f"Interface initialization failed: {e}")
