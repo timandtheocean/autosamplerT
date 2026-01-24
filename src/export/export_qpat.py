@@ -91,9 +91,10 @@ class WaldorfQpatExporter:
             # Create output structure
             qpat_file = os.path.join(output_folder, f'{multisample_name}.qpat')
             
-            # Build relative sample path: samples/multisample_name
+            # Build relative sample path: multisample_name/samples
+            # Format: "4:Prophet_Program/samples/filename.wav" (no 'samples/' prefix)
             multisample_folder_name = os.path.basename(output_folder)
-            relative_sample_path = f'samples/{multisample_folder_name}'
+            relative_sample_path = f'{multisample_folder_name}/samples'
 
             # Generate sample maps using shared MAP export logic
             sample_maps = self._create_sample_maps_from_map_exporter(groups, relative_sample_path, samples_folder)
@@ -380,23 +381,24 @@ class WaldorfQpatExporter:
             self._write_header(f, name, metadata)
 
             # Write parameter count
-            f.write(struct.pack('>H', len(parameters)))
+            f.write(struct.pack('<H', len(parameters)))
             f.write(b'\x00\x00')  # Padding
 
             # Write resource headers (sample maps)
+            # Resource types: 4=USER_SAMPLE_MAP1, 5=USER_SAMPLE_MAP2, 6=USER_SAMPLE_MAP3
             for i, sample_map in enumerate(sample_maps):
-                resource_type = i  # 0, 1, 2 for USER_SAMPLE_MAP1/2/3
+                resource_type = 4 + i  # 4, 5, 6 for USER_SAMPLE_MAP1/2/3
                 map_bytes = sample_map.encode('utf-8')
                 self._write_resource_header(f, resource_type, len(map_bytes))
 
-            # Pad remaining resource headers
-            for _ in range(self.MAX_GROUPS - len(sample_maps)):
-                self._write_resource_header(f, 0, 0)  # Empty
+            # Pad remaining resource headers (16 total, per Waldorf spec)
+            for _ in range(16 - len(sample_maps)):
+                self._write_resource_header(f, 0, 0)  # Empty (type 0 = UNUSED)
 
             # Write 2nd layer info (none)
-            f.write(struct.pack('>H', 0))
-            f.write(struct.pack('>H', 0))
-            f.write(struct.pack('>I', 0))
+            f.write(struct.pack('<H', 0))
+            f.write(struct.pack('<H', 0))
+            f.write(struct.pack('<I', 0))
 
             # Instrument type (0 = Quantum)
             f.write(b'\x00')
@@ -417,11 +419,11 @@ class WaldorfQpatExporter:
 
     def _write_header(self, f, name: str, metadata: Dict) -> None:
         """Write 512-byte header."""
-        # Magic number
-        f.write(struct.pack('>I', self.MAGIC_NUMBER))
+        # Magic number (little-endian like Waldorf files)
+        f.write(struct.pack('<I', self.MAGIC_NUMBER))
 
         # Preset version
-        f.write(struct.pack('>I', self.PRESET_VERSION))
+        f.write(struct.pack('<I', self.PRESET_VERSION))
 
         # Name
         self._write_ascii_padded(f, name, self.MAX_STRING_LENGTH)
@@ -445,21 +447,21 @@ class WaldorfQpatExporter:
             self._write_ascii_padded(f, cat, self.MAX_STRING_LENGTH)
 
     def _write_resource_header(self, f, resource_type: int, length: int) -> None:
-        """Write resource header (12 bytes)."""
-        f.write(struct.pack('>I', resource_type))
-        f.write(struct.pack('>I', length))
-        f.write(struct.pack('>I', 0))  # Reserved
+        """Write resource header (12 bytes): type, offset, length."""
+        f.write(struct.pack('<I', resource_type))
+        f.write(struct.pack('<I', 0))  # Offset (not used, always 0)
+        f.write(struct.pack('<I', length))
 
     def _write_parameter(self, f, param: Dict) -> None:
-        """Write parameter (name + display + value)."""
+        """Write parameter (value + name + display) - 68 bytes total."""
+        # Normalized value (4 bytes float, little-endian) - FIRST
+        f.write(struct.pack('<f', param['value']))
+
         # Parameter name (32 bytes)
         self._write_ascii_padded(f, param['name'], self.MAX_STRING_LENGTH)
 
         # Display text (32 bytes)
         self._write_ascii_padded(f, param['display'], self.MAX_STRING_LENGTH)
-
-        # Normalized value (4 bytes float, big-endian)
-        f.write(struct.pack('>f', param['value']))
 
     def _write_ascii_padded(self, f, text: str, length: int) -> None:
         """Write ASCII string padded/truncated to exact length."""

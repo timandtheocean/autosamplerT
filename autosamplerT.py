@@ -848,7 +848,23 @@ def _export_multisample_formats(args, config, multisample_name, output_folder):
             else:
                 print(f"[ERROR] Failed to export Waldorf Map")
         
-        elif fmt in ['ableton', 'exs', 'sxt']:
+        elif fmt == 'ableton':
+            print(f"\n[EXPORT] Converting to Ableton Live Sampler format...")
+            from src.export.export_ableton import export_to_ableton
+            success = export_to_ableton(
+                output_folder=multisample_folder,
+                multisample_name=multisample_name,
+                sfz_file=sfz_file,
+                samples_folder=samples_folder,
+                velocity_crossfade=getattr(args, 'ableton_velocity_crossfade', 0),
+                key_crossfade=getattr(args, 'ableton_key_crossfade', 0)
+            )
+            if success:
+                print(f"[SUCCESS] Exported to Ableton ADV: {multisample_folder}/{multisample_name}.adv")
+            else:
+                print(f"[ERROR] Failed to export Ableton ADV")
+        
+        elif fmt in ['exs', 'sxt']:
             print(f"[TODO] {fmt.upper()} export not yet implemented")
         else:
             print(f"[ERROR] Unknown export format: {fmt}")

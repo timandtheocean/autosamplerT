@@ -92,13 +92,12 @@ class AutoSampler:
         if output_config:
             self.sampling_config.update(output_config)
 
-        # Merge audio settings into sampling_config if needed
+        # Merge audio settings - script 'audio:' section OVERRIDES config 'audio_interface:'
         audio_settings = config.get('audio', {})
         if audio_settings:
-            # Don't override audio_interface settings, just add to sampling_config if missing
+            # Script settings override config settings
             for key, value in audio_settings.items():
-                if key not in self.audio_config:
-                    self.audio_config[key] = value
+                self.audio_config[key] = value
 
         # Test mode flag
         self.test_mode = self.sampling_config.get('test_mode', False)
@@ -1337,7 +1336,23 @@ class AutoSampler:
         
         # Audio interface info
         device_info = self._get_audio_device_info()
-        col2_lines.append(f"Input: {device_info}")
+        col2_lines.append(f"Device: {device_info}")
+        
+        # Input and monitor channels
+        input_channels = self.audio_config.get('input_channels', '')
+        monitor_channels = self.audio_config.get('monitor_channels', '')
+        if input_channels:
+            col2_lines.append(f"Input ch: {input_channels}")
+        if monitor_channels:
+            col2_lines.append(f"Monitor ch: {monitor_channels}")
+        
+        # Audio engine settings (gain, blocksize, monitoring)
+        gain_db = getattr(self.audio_engine, 'gain_db', 0.0)
+        blocksize = getattr(self.audio_engine, 'blocksize', None)
+        col2_lines.append(f"Gain: {gain_db:+.1f} dB" if gain_db != 0 else "Gain: 0 dB (unity)")
+        if blocksize:
+            col2_lines.append(f"Buffer: {blocksize} samples")
+        col2_lines.append(f"Monitoring: {'On' if self.enable_monitoring else 'Off'}")
         
         col2_lines.append("")
         col2_lines.append("Timing:")

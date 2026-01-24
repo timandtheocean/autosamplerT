@@ -1,9 +1,9 @@
-name: "Prophet Program 0"
+name: "Prophet Program qpat"
 description: "Prophet 6 Program 0 - Every 5 semitones, 3 RR layers"
 
 # Output settings
 output:
-  multisample_name: "Prophet_Program_0"
+  multisample_name: "Prophet_Program_qpat-test"
 
 # Audio settings
 audio:

@@ -9,9 +9,9 @@ AutosamplerT supports exporting multisamples to various hardware and software sa
 | **SFZ** | Native | Native format, always created | Loop points |
 | **QPAT** | Implemented | Waldorf Quantum/Iridium format | Loop points, crossfade |
 | **Waldorf .map** | Implemented | Waldorf text-based sample map | Loop points, crossfade |
-| **Ableton** | TODO | Ableton Live Sampler/Simpler | - |
+| **Ableton ADV** | Implemented | Ableton Live Sampler format | Velocity crossfade, round-robin, loops |
 | **EXS24** | TODO | Logic Pro EXS24 format | - |
-| **SXT** | TODO | Native Instruments Kontakt | - |
+| **SXT** | TODO | Reason NN-XT format | - |
 
 ## Export Configuration
 
@@ -314,24 +314,208 @@ export:
 
 ---
 
-## Ableton Live Format
+## Ableton Live Sampler Format
 
-**Status:**  TODO - Planned for future release
+**Status:** Implemented
 
 ### Overview
-Export format for Ableton Live's Sampler and Simpler devices.
+The ADV format is Ableton Live's Sampler instrument preset format. ADV files are **GZIP-compressed XML files** containing sample mappings, loop points, and all Sampler parameters. This export creates multisamples that load directly in Ableton Live's Sampler device.
 
-### Planned Features
-- Sampler preset (.adg)
-- Simpler preset (.adv)
-- Multi-sample support
-- Velocity layers
-- Round-robin via device chains
+### File Structure
+```
+output/
+  MySynth/
+    MySynth.adv          # GZIP-compressed XML preset
+    samples/
+      MySynth_C3_v127_rr1.wav
+      MySynth_C3_v127_rr2.wav
+      ...
+```
 
-### Implementation Notes
-- Research `.adg` XML structure
-- Analyze ConvertWithMoss Ableton export
-- Support both Sampler and Simpler formats
+### Format Specification
+
+#### File Format
+- **Container:** GZIP-compressed XML
+- **Extension:** `.adv`
+- **Encoding:** UTF-8
+- **Schema Version:** 5.11 (Ableton Live 11 compatible)
+
+#### XML Structure
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Ableton MajorVersion="5" MinorVersion="11.0_11300" 
+         SchemaChangeCount="3" Creator="AutosamplerT">
+    <MultiSampler>
+        <Player>
+            <MultiSampleMap>
+                <SampleParts>
+                    <MultiSamplePart Id="0">
+                        <!-- Sample zone definition -->
+                    </MultiSamplePart>
+                </SampleParts>
+            </MultiSampleMap>
+        </Player>
+        <!-- Sampler engine parameters -->
+    </MultiSampler>
+</Ableton>
+```
+
+### Sample Zone Mapping
+
+Each sample has a `MultiSamplePart` element defining its key range, velocity range, and selector range (for round-robin):
+
+#### KeyRange - Note Mapping with Crossfade
+```xml
+<KeyRange>
+    <Min Value="48" />           <!-- Lowest MIDI note -->
+    <Max Value="72" />           <!-- Highest MIDI note -->
+    <CrossfadeMin Value="48" />  <!-- Start of crossfade in -->
+    <CrossfadeMax Value="72" />  <!-- End of crossfade out -->
+</KeyRange>
+```
+- **CrossfadeMin/CrossfadeMax** define the soft crossfade boundaries
+- Enables smooth blending between adjacent key zones
+
+#### VelocityRange - Velocity Layers with Crossfade
+```xml
+<VelocityRange>
+    <Min Value="1" />            <!-- Lowest velocity -->
+    <Max Value="64" />           <!-- Highest velocity -->
+    <CrossfadeMin Value="1" />   <!-- Crossfade start (soft) -->
+    <CrossfadeMax Value="64" />  <!-- Crossfade end (soft) -->
+</VelocityRange>
+```
+
+**Velocity Crossfade Calculation:**
+For velocity layers, crossfade zones are calculated for smooth transitions:
+- Layer 1 (bottom): CrossfadeMin=1, CrossfadeMax=CrossfadeWidth
+- Middle layers: Overlap with adjacent layers
+- Layer N (top): CrossfadeMin=Max-CrossfadeWidth, CrossfadeMax=127
+
+**Default Crossfade:** 15 velocity units (~12% of range)
+
+#### SelectorRange - Round-Robin via Selector
+```xml
+<SelectorRange>
+    <Min Value="0" />
+    <Max Value="63" />
+    <CrossfadeMin Value="0" />
+    <CrossfadeMax Value="63" />
+</SelectorRange>
+```
+
+**Round-Robin Implementation:**
+- Ableton Sampler uses the "Selector" parameter (0-127) for round-robin
+- The 0-127 range is divided equally among round-robin samples
+- Example with 2 RR layers: Sample 1 = 0-63, Sample 2 = 64-127
+- Example with 4 RR layers: 0-31, 32-63, 64-95, 96-127
+
+**Setting Up Round-Robin in Ableton:**
+1. Load the .adv preset
+2. In Sampler, find the "Selector" knob in the Zone tab
+3. Map Selector to a MIDI CC or use a Max for Live device
+4. Automate or use a Random LFO to cycle through values
+
+#### Loop Points
+```xml
+<SustainLoop>
+    <Start Value="22050" />      <!-- Loop start (sample frames) -->
+    <End Value="44100" />        <!-- Loop end (sample frames) -->
+    <Mode Value="1" />           <!-- 0=off, 1=forward, 2=alternating -->
+    <Crossfade Value="441" />    <!-- Crossfade in samples (10ms @44.1kHz) -->
+    <Detune Value="0" />
+</SustainLoop>
+```
+
+**Loop Mode Values:**
+- `0` = Loop disabled
+- `1` = Forward loop (standard)
+- `2` = Alternating (ping-pong) loop
+- `3` = Release loop (for ReleaseLoop element)
+
+### Features Supported
+
+- **Key Mapping** - Full keyboard support with configurable ranges
+- **Key Crossfade** - Smooth blending between adjacent key zones
+- **Velocity Layers** - Multiple velocity layers with crossfade
+- **Velocity Crossfade** - Soft transitions between velocity layers
+- **Round-Robin** - Via SelectorRange parameter
+- **Loop Points** - Forward and ping-pong loops from WAV SMPL chunk
+- **Loop Crossfade** - Smooth loop transitions
+- **Root Key/Pitch** - Correct pitch mapping
+- **Volume/Pan** - Per-sample gain and pan
+
+### Usage
+
+#### Export from Existing SFZ
+```bash
+# Basic export
+python autosamplerT.py --process MySynth --export_formats ableton
+
+# Combined export (QPAT + Ableton)
+python autosamplerT.py --process MySynth --export_formats qpat,ableton
+```
+
+#### Export During Sampling
+```bash
+python autosamplerT.py --script conf/my_synth.yaml --export_formats ableton
+```
+
+#### YAML Configuration
+```yaml
+export:
+  formats:
+    - ableton
+  # Velocity crossfade is automatic based on number of layers
+```
+
+### Importing to Ableton Live
+
+1. **Locate the ADV file** in your output folder
+2. **Copy to User Library** (optional):
+   - macOS: `~/Music/Ableton/User Library/Presets/Instruments/Sampler/`
+   - Windows: `\Users\[username]\Documents\Ableton\User Library\Presets\Instruments\Sampler\`
+3. **Open Ableton Live**
+4. **Drag the .adv file** onto a MIDI track, or
+5. **Browse in Live's browser** under User Library > Presets > Instruments > Sampler
+
+**Important:** Keep the `samples/` folder in the same location as the .adv file, or collect and save after loading.
+
+### Ableton-Specific Constraints
+
+1. **Sample Paths**
+   - Relative paths from the .adv file location
+   - Samples must be in a `samples/` subfolder
+   - Use "Collect All and Save" in Ableton to consolidate
+
+2. **Round-Robin Requires Setup**
+   - Selector must be modulated for RR to work
+   - Use Max for Live Round Robin device, or
+   - Map Selector to MIDI CC with cycling values
+
+3. **Velocity Crossfade**
+   - Enabled by default with 15-unit crossfade
+   - Creates smooth transitions between velocity layers
+
+### Known Limitations
+- Round-robin requires manual Selector modulation setup
+- No filter/envelope export (uses Sampler defaults)
+- No modulation routing export
+- Maximum tested: 128 samples per preset
+
+### Troubleshooting
+
+**Problem:** Samples don't load
+- **Solution:** Ensure samples folder is in same directory as .adv file. Use "Collect All and Save" to consolidate.
+
+**Problem:** Round-robin not cycling
+- **Solution:** Selector parameter needs external modulation. Use a Max for Live device or MIDI CC mapping.
+
+**Problem:** Velocity crossfade too abrupt/smooth
+- **Solution:** Currently fixed at 15 units. Edit XML manually for custom crossfade.
+
+**Problem:** Loop points not correct
+- **Solution:** Verify loop points in source WAV files (SMPL chunk). Run auto-loop during sampling.
 
 ---
 

@@ -4,6 +4,24 @@ Last Updated: January 24, 2026
 
 ---
 
+## COMPLETED
+
+### Ableton Live Sampler Format Export
+**Status:** IMPLEMENTED - January 24, 2026
+
+Features implemented:
+- ADV file format (GZIP-compressed XML)
+- Key range mapping with crossfade
+- Velocity layers with crossfade (15-unit default)
+- Round-robin via SelectorRange (0-127 divided by layer count)
+- Loop points from WAV SMPL chunks (forward and ping-pong)
+- Loop crossfade support
+- Per-sample volume, pan, root key, detune
+
+Documentation: [EXPORT_FORMATS.md](doc/EXPORT_FORMATS.md#ableton-live-sampler-format)
+
+---
+
 ## HIGH PRIORITY - Critical Issues
 
 ### 1. Recording Latency Detection and Compensation
@@ -33,21 +51,9 @@ Last Updated: January 24, 2026
 
 ---
 
-## MEDIUM PRIORITY - Export Formats
-
-### 5. Ableton Live Sampler Format Export
-**Status:** PLANNED - Next priority after QPAT
-
-### 6. Audio Optimization for QPAT Export
-**Status:** Parameter accepted but NOT IMPLEMENTED
-- `--export_optimize_audio` should convert to 44.1kHz 32-bit float
-- Currently samples are copied as-is
-
----
-
 ## MEDIUM PRIORITY - Testing Needed
 
-### 7. MIDI Message Types Testing
+### 5. MIDI Message Types Testing
 All implemented but need comprehensive testing:
 - CC Messages (7-bit) - CLI and YAML
 - CC14 Messages (14-bit) - CLI and YAML
@@ -56,7 +62,7 @@ All implemented but need comprehensive testing:
 - SysEx Messages - CLI and YAML
 - Combined MIDI Messages in scripts
 
-### 8. Auto-Loop Test Material
+### 6. Auto-Loop Test Material
 **Status:** Test framework exists, needs test samples
 - Generate synthetic test samples (sine, square, sawtooth, noise)
 - Test different `--loop_min_duration` values

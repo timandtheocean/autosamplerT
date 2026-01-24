@@ -71,10 +71,10 @@ class WaldorfSampleMapExporter:
             # Create output file
             map_file = os.path.join(output_folder, f'{map_name}.map')
             
-            # Build relative sample path: samples/multisample_name
-            # e.g., "samples/prophet6-test1-basic"
+            # Build relative sample path: multisample_name/samples
+            # Format: "4:Prophet_Program/samples/filename.wav" (no 'samples/' prefix)
             multisample_folder_name = os.path.basename(output_folder)
-            relative_sample_path = f'samples/{multisample_folder_name}'
+            relative_sample_path = f'{multisample_folder_name}/samples'
 
             # Write map file
             with open(map_file, 'w', encoding='utf-8') as f:
