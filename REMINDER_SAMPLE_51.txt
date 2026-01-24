@@ -1,8 +1,0 @@
-REMINDER: Redo Prophet Program 51 Extended
-
-Issue noted during batch sampling - sample 51 extended needs to be resampled.
-
-Command to resample:
-python autosamplerT.py --script conf/prophet_programs_extended/prophet_program_51_extended.yaml
-
-Date noted: January 18, 2026
