@@ -135,18 +135,55 @@ class MIDIController:
         """
         if not self.midi_output_port or self.test_mode:
             logging.info(f"[TEST MODE] Program Change: program={program}, channel={channel}")
-            print(f"🎛️  [TEST MODE] Program Change: Program {program} on channel {channel + 1}")
             return
 
         try:
             pc_msg = mido.Message('program_change', program=program, channel=channel)
             self.midi_output_port.send(pc_msg)
             logging.info(f"MIDI Program Change: program={program}, channel={channel}")
-            print(f"🎛️  MIDI Program Change sent: Program {program} on channel {channel + 1}")
             time.sleep(0.5)  # Extra delay to ensure program change takes effect
         except Exception as e:
             logging.error(f"Failed to send Program Change: {e}")
-            print(f"❌ Failed to send Program Change: {e}")
+
+    def send_note_on(self, note: int, velocity: int = 100, channel: int = 0) -> None:
+        """
+        Send a MIDI Note On message.
+
+        Args:
+            note: MIDI note number (0-127)
+            velocity: MIDI velocity (0-127)
+            channel: MIDI channel (0-15)
+        """
+        if not self.midi_output_port or self.test_mode:
+            logging.info(f"[TEST MODE] Note On: note={note}, velocity={velocity}, channel={channel}")
+            return
+
+        try:
+            note_on_msg = mido.Message('note_on', note=note, velocity=velocity, channel=channel)
+            self.midi_output_port.send(note_on_msg)
+            logging.info(f"MIDI Note On sent: note={note}, velocity={velocity}, channel={channel}")
+        except Exception as e:
+            logging.error(f"Failed to send Note On: {e}")
+
+    def send_note_off(self, note: int, velocity: int = 64, channel: int = 0) -> None:
+        """
+        Send a MIDI Note Off message.
+
+        Args:
+            note: MIDI note number (0-127)
+            velocity: MIDI velocity (0-127, typically lower for note off)
+            channel: MIDI channel (0-15)
+        """
+        if not self.midi_output_port or self.test_mode:
+            logging.info(f"[TEST MODE] Note Off: note={note}, velocity={velocity}, channel={channel}")
+            return
+
+        try:
+            note_off_msg = mido.Message('note_off', note=note, velocity=velocity, channel=channel)
+            self.midi_output_port.send(note_off_msg)
+            logging.info(f"MIDI Note Off sent: note={note}, velocity={velocity}, channel={channel}")
+        except Exception as e:
+            logging.error(f"Failed to send Note Off: {e}")
 
     def send_sysex(self, sysex_data: str, channel: int = 0) -> None:
         """

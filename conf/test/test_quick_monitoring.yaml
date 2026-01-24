@@ -1,0 +1,40 @@
+# Quick test of ASIO monitoring during sampling
+name: "Quick Monitoring Test"
+description: "Sample 3 notes to test real-time monitoring"
+
+# Use configured audio settings from autosamplerT_config.yaml
+audio:
+  input_channels: "3-4"
+  monitor_channels: "3-4"
+  mono_stereo: stereo
+  enable_monitoring: true  # Enable real-time audio monitoring during sampling
+
+# MIDI interface
+midi_interface:
+  output_port_name: "Prophet 6"
+
+# Sampling - just 3 notes for quick test
+sampling:
+  note_range_start: 60  # C4
+  note_range_end: 62    # D4
+  note_range_interval: 1
+  velocity_layers: 1
+  roundrobin_layers: 1
+  hold_time: 5.0        # 5 seconds hold
+  release_time: 2.0     # 2 seconds release = 7 seconds total
+  pause_time: 2.0       # 2 second pause between samples
+
+# Output
+output:
+  multisample_name: "MonitoringTest"
+  output_folder: "output"
+
+# Post-processing
+postprocessing:
+  trim_silence: false
+  sample_normalize: false
+  gain_db: 0.0          # No gain boost - test raw recording
+  dc_offset_removal: false  # No DC offset removal
+  auto_loop: true       # Enable auto-looping
+  loop_min_duration: "50%"
+  loop_strategy: "sustain"

@@ -1,6 +1,4 @@
-"""
-Wavetable creation configuration
-"""
+# Wavetable creation configuration
 
 # Default wavetable settings
 wavetable_defaults:
@@ -23,8 +21,40 @@ wavetable_defaults:
   hold_time_before: 0.5  # seconds before sweep
   hold_time_after: 0.5   # seconds after sweep
   
+  # Audio processing (applied after recording)
+  gain_boost_db: 0.0       # Gain boost in dB (0 = no boost, 12 = +12dB)
+  normalize: false         # Normalize audio to target peak level
+  normalize_target_db: -6.0  # Target peak level in dB (-6 = 50% headroom)
+  
+  # Real-time monitoring (routes input to output during recording)
+  enable_monitoring: true  # Set to true to hear audio while recording
+  
+# Prophet 6 NRPN ranges (manually specified to bypass learning issues)
+prophet_6_ranges:
+  nrpn3_osc1_shape:
+    min_value: 0
+    max_value: 254
+    
+  nrpn4_osc1_mix:
+    min_value: 0
+    max_value: 254
+    
+  nrpn5_osc2_freq:
+    min_value: 0
+    max_value: 254
+    
+  # Add more Prophet 6 NRPN ranges as needed
+    
 # Example wavetable configurations
 examples:
+  prophet6_osc1_shape:
+    name: "p6_osc1_shape"
+    samples_per_waveform: 2048
+    number_of_waves: 64
+    control_type: "nrpn"
+    nrpn_parameter: 3
+    manual_range: [0, 254]  # Skip learning, use known range
+    
   basic_filter_sweep:
     name: "basic_filter"
     samples_per_waveform: 2048

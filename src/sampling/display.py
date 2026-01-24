@@ -130,6 +130,9 @@ class SamplingDisplay:
         self.pause_message = ""
         self.pause_progress = 0.0
         self.pause_remaining = 0.0
+        
+        # Monitoring display state
+        self.monitoring_data = None
 
         # Get terminal width
         self.terminal_width = self._get_terminal_width()
@@ -356,6 +359,17 @@ class SamplingDisplay:
         self.pause_message = message
         self.pause_progress = progress
         self.pause_remaining = remaining
+        self._render()
+    
+    def update_monitoring(self, monitor_dict: dict):
+        """
+        Update monitoring data for display.
+        
+        Args:
+            monitor_dict: Dictionary containing monitoring data (levels, pitch, etc.)
+        """
+        self.monitoring_data = monitor_dict
+        # Render immediately to show real-time monitoring updates
         self._render()
 
     def _render(self):

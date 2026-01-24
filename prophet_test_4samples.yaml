@@ -1,0 +1,47 @@
+name: "Prophet Test 4 Samples"
+description: "Prophet 6 Program 0 - Quick test with just 4 samples"
+
+# Output settings
+output:
+  multisample_name: "Prophet_Test_4Samples"
+
+# Audio settings
+audio:
+  input_device_index: 37   # Use ASIO device
+  output_device_index: 37  # Same device for output
+  samplerate: 44100
+  bitdepth: 24
+  mono_stereo: stereo
+  input_channels: "3-4"
+  output_channels: "3-4"  
+  monitor_channels: "3-4"
+  enable_monitoring: true
+
+# MIDI interface
+midi_interface:
+  output_port_name: "Prophet 6 1"
+  program_change: 0
+
+# Sampling configuration  
+sampling:
+  note_range_start: 60    # C4
+  note_range_end: 63      # D#4 (4 notes: C4, C#4, D4, D#4)
+  note_range_interval: 1  # Every semitone
+  velocity_layers: 1      # Single velocity
+  roundrobin_layers: 1    # Just 1 layer for quick test
+  hold_time: 7.0          # 7 seconds sampling
+  release_time: 1.0       # 1 second release
+  pause_time: 2.0         # 2 seconds pause between samples
+
+# Post-processing
+postprocessing:
+  auto_loop: true
+  loop_crossfade_percent: 10  # 10% crossfade
+  trim_silence: true
+  silence_detection: auto     # "auto" (detect noise floor) or "manual" (use threshold)
+  silence_threshold: -60.0    # Manual threshold in dB (used when silence_detection: manual)
+
+# Export formats
+export:
+  formats:
+    - sfz

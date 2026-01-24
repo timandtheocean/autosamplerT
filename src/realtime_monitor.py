@@ -10,6 +10,10 @@ Features:
 - Integration with sampling workflow
 """
 
+import os
+# Enable ASIO support in sounddevice (must be set before importing sounddevice)
+os.environ["SD_ENABLE_ASIO"] = "1"
+
 import numpy as np
 import sounddevice as sd
 import threading
@@ -175,7 +179,8 @@ class RealtimeAudioMonitor:
     
     def __init__(self, device_index: int, sample_rate: int = 44100, 
                  channels: int = 1, chunk_size: int = 1024,
-                 channel_offset: int = 0):
+                 channel_offset: int = 0, monitor_channel_offset: Optional[int] = None,
+                 output_device_index: Optional[int] = None):
         """
         Initialize real-time audio monitor.
         
@@ -185,12 +190,16 @@ class RealtimeAudioMonitor:
             channels: Number of input channels 
             chunk_size: Audio chunk size for processing
             channel_offset: Channel offset for multi-channel interfaces
+            monitor_channel_offset: Output channel offset for monitoring (if None, uses channel_offset)
+            output_device_index: Output device index (if None, uses device_index)
         """
         self.device_index = device_index
+        self.output_device_index = output_device_index if output_device_index is not None else device_index
         self.sample_rate = sample_rate
         self.channels = channels
         self.chunk_size = chunk_size
         self.channel_offset = channel_offset
+        self.monitor_channel_offset = monitor_channel_offset if monitor_channel_offset is not None else channel_offset
         
         # Store channel selectors for display purposes
         self.channel_selectors = None
@@ -231,6 +240,12 @@ class RealtimeAudioMonitor:
         self.freq_smoothing = 0.7       # Exponential smoothing for frequency
         self.last_frequency = None      # For smoothing
         
+        # Fade-in/out to prevent clicks
+        self.fade_samples = 0           # Current position in fade
+        self.fade_length = 2048         # Fade duration in samples (~46ms at 44.1kHz)
+        self.fade_in_complete = False   # Track fade-in state
+        self.fade_out_active = False    # Track fade-out state
+        
     def calibrate_tuner(self, reference_note: str, reference_freq: float, expected_cents: float):
         """
         Calibrate the tuner based on a reference frequency.
@@ -256,10 +271,43 @@ class RealtimeAudioMonitor:
             self.pitch_detector.A4_calibration += (cents_error / 1200) * 440.0
             logging.info(f"Calibrated for {reference_note}: A4 = {self.pitch_detector.A4_calibration:.3f}Hz")
         
-    def _audio_callback(self, indata, frames, time, status):
-        """Audio callback for processing incoming audio data."""
+    def _audio_callback(self, indata, outdata, frames, time, status):
+        """Audio callback for processing incoming audio data and routing to output."""
         if status:
             logging.warning(f"Audio callback status: {status}")
+        
+        # Apply fade-in to prevent clicks at start
+        if not self.fade_in_complete:
+            # Create fade-in envelope
+            fade_env = np.zeros(frames)
+            for i in range(frames):
+                if self.fade_samples < self.fade_length:
+                    fade_env[i] = self.fade_samples / self.fade_length
+                    self.fade_samples += 1
+                else:
+                    fade_env[i] = 1.0
+                    self.fade_in_complete = True
+            
+            # Apply fade to output (reshape for broadcasting)
+            if indata.ndim > 1:
+                outdata[:] = indata * fade_env.reshape(-1, 1)
+            else:
+                outdata[:] = indata * fade_env
+        elif self.fade_out_active:
+            # Apply fade-out when stopping
+            fade_env = np.zeros(frames)
+            for i in range(frames):
+                remaining = max(0, self.fade_samples - i)
+                fade_env[i] = min(1.0, remaining / self.fade_length)
+            self.fade_samples = max(0, self.fade_samples - frames)
+            
+            if indata.ndim > 1:
+                outdata[:] = indata * fade_env.reshape(-1, 1)
+            else:
+                outdata[:] = indata * fade_env
+        else:
+            # Normal operation - route input to output for monitoring
+            outdata[:] = indata
         
 
             
@@ -587,6 +635,11 @@ class RealtimeAudioMonitor:
         self.is_monitoring = True
         self.stop_event.clear()
         
+        # Reset fade state for clean start
+        self.fade_samples = 0
+        self.fade_in_complete = False
+        self.fade_out_active = False
+        
         try:
             # Configure device for monitoring - need to capture the right channels
             # For ASIO devices, we need to specify which channels to capture
@@ -598,33 +651,38 @@ class RealtimeAudioMonitor:
                 host_api_name = host_apis[device_info['hostapi']]['name']
                 is_asio = 'ASIO' in host_api_name
                 
-                # Configure for ASIO multi-channel capture
+                # Configure for ASIO multi-channel duplex (input + output monitoring)
                 extra_settings = None
                 actual_channels = self.channels
                 
                 if is_asio and device_info['max_input_channels'] > 2:
-                    # For ASIO, calculate channel selectors based on channel_offset
-                    # channel_offset is calculated from input_channels (e.g., "1-2" -> 0, "3-4" -> 2)
-                    channel_selectors = [self.channel_offset, self.channel_offset + 1]
-                    extra_settings = sd.AsioSettings(channel_selectors=channel_selectors)
+                    # For ASIO duplex, we need input and output channel selectors
+                    input_channels = [self.channel_offset, self.channel_offset + 1]
+                    output_channels = [self.monitor_channel_offset, self.monitor_channel_offset + 1]
+                    
+                    # ASIO duplex requires all channels in one list: [input_ch1, input_ch2, output_ch1, output_ch2]
+                    all_channels = input_channels + output_channels
+                    extra_settings = sd.AsioSettings(channel_selectors=all_channels)
                     actual_channels = 2
                     
                     # Store for display
-                    self.channel_selectors = channel_selectors
+                    self.channel_selectors = input_channels
                     self.is_asio = True
                     
                     # Display channels are 1-based
-                    display_ch = [ch + 1 for ch in channel_selectors]
-                    logging.info(f"ASIO monitoring: capturing channels {channel_selectors} ({display_ch[0]}-{display_ch[1]} in 1-based)")
+                    display_in_ch = [ch + 1 for ch in input_channels]
+                    display_out_ch = [ch + 1 for ch in output_channels]
+                    logging.info(f"ASIO duplex monitoring: Input channels {input_channels} ({display_in_ch[0]}-{display_in_ch[1]}), "
+                               f"Monitor output channels {output_channels} ({display_out_ch[0]}-{display_out_ch[1]})")
                 else:
-                    logging.info(f"Standard monitoring: capturing {actual_channels} channels")
+                    logging.info(f"Standard duplex monitoring: {actual_channels} channels")
             else:
                 extra_settings = None
                 actual_channels = self.channels
             
-            # Start audio stream
-            self.stream = sd.InputStream(
-                device=self.device_index,
+            # Start duplex audio stream (both input and output for monitoring)
+            self.stream = sd.Stream(
+                device=(self.device_index, self.output_device_index),
                 channels=actual_channels,
                 samplerate=self.sample_rate,
                 blocksize=self.chunk_size,
@@ -649,6 +707,16 @@ class RealtimeAudioMonitor:
         """Stop real-time audio monitoring."""
         if not self.is_monitoring:
             return
+        
+        # Trigger fade-out to prevent clicks
+        if self.stream:
+            self.fade_out_active = True
+            self.fade_samples = self.fade_length
+            
+            # Wait for fade-out to complete (~46ms at 44.1kHz)
+            import time
+            fade_time = self.fade_length / self.sample_rate
+            time.sleep(fade_time + 0.01)  # Small extra buffer
         
         self.is_monitoring = False
         self.stop_event.set()
@@ -683,6 +751,8 @@ class RealtimeAudioMonitor:
 
 def show_monitoring_interface(device_index: int, sample_rate: int = 44100,
                             channels: int = 1, channel_offset: int = 0,
+                            monitor_channel_offset: Optional[int] = None,
+                            output_device_index: Optional[int] = None,
                             duration: Optional[float] = None) -> dict:
     """
     Show real-time monitoring interface with user interaction.
@@ -692,6 +762,8 @@ def show_monitoring_interface(device_index: int, sample_rate: int = 44100,
         sample_rate: Sample rate in Hz
         channels: Number of channels
         channel_offset: Channel offset for multi-channel devices
+        monitor_channel_offset: Output channel offset for monitoring (if None, uses channel_offset)
+        output_device_index: Output device index (if None, uses device_index)
         duration: Maximum duration in seconds (None = until user stops)
         
     Returns:
@@ -701,7 +773,9 @@ def show_monitoring_interface(device_index: int, sample_rate: int = 44100,
         device_index=device_index,
         sample_rate=sample_rate,
         channels=channels,
-        channel_offset=channel_offset
+        channel_offset=channel_offset,
+        monitor_channel_offset=monitor_channel_offset,
+        output_device_index=output_device_index
     )
     
     try:
@@ -729,6 +803,8 @@ def show_monitoring_interface(device_index: int, sample_rate: int = 44100,
 
 def show_pre_sampling_monitor(device_index: int, sample_rate: int = 44100,
                              channels: int = 1, channel_offset: int = 0,
+                             monitor_channel_offset: Optional[int] = None,
+                             output_device_index: Optional[int] = None,
                              title: str = "Audio Level Monitor") -> bool:
     """
     Show real-time monitoring before sampling with simple proceed/cancel.
@@ -738,6 +814,8 @@ def show_pre_sampling_monitor(device_index: int, sample_rate: int = 44100,
         sample_rate: Sample rate in Hz  
         channels: Number of channels
         channel_offset: Channel offset for multi-channel devices
+        monitor_channel_offset: Output channel offset for monitoring (if None, uses channel_offset)
+        output_device_index: Output device index (if None, uses device_index)
         title: Title for the monitoring display
         
     Returns:
@@ -750,7 +828,9 @@ def show_pre_sampling_monitor(device_index: int, sample_rate: int = 44100,
         device_index=device_index,
         sample_rate=sample_rate,
         channels=channels,
-        channel_offset=channel_offset
+        channel_offset=channel_offset,
+        monitor_channel_offset=monitor_channel_offset,
+        output_device_index=output_device_index
     )
     
     try:

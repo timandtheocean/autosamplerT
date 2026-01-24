@@ -1,0 +1,35 @@
+# Test normal sampling - 4 samples with 7s hold time and 2s pause
+
+name: "Test Normal 4 Samples"
+description: "Quick test of normal sampling functionality"
+
+# Audio settings
+audio_interface:
+  input_device_index: null  # Use default device
+  output_device_index: null
+  samplerate: 44100
+  bitdepth: 24
+  mono_stereo: stereo
+  input_channels: "1-2"
+
+# MIDI interface  
+midi_interface:
+  output_port_name: "Prophet 6 1"
+  velocity_minimum: 100
+
+# Sampling configuration
+sampling:
+  note_range_start: 60      # C4
+  note_range_end: 63        # D#4 (4 notes total)
+  note_range_interval: 1
+  velocity_layers: 1
+  roundrobin_layers: 1
+  hold_time: 7.0           # 7 seconds
+  release_time: 1.0
+  pause_time: 2.0          # 2 second pause between samples
+  multisample_name: "Test4Samples"
+
+# Output settings
+output:
+  output_format: sfz
+  base_output_folder: "./output"

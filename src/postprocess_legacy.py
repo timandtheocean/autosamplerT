@@ -76,10 +76,22 @@ class PostProcessor:
                         metadata['note'] = note_info
                         print(f"  - Updated note metadata: {note_info}")
 
-                # DC offset removal
+                # DC offset removal (MUST be before gain to avoid amplifying offset)
                 if operations.get('dc_offset_removal'):
                     audio_data = self._remove_dc_offset(audio_data)
                     print("  - Removed DC offset")
+                else:
+                    # Always remove DC offset when applying gain to prevent bias
+                    if operations.get('gain_db', 0.0) != 0.0:
+                        # Check DC offset before removing
+                        dc_offset_l = np.mean(audio_data[:, 0]) if audio_data.ndim == 2 else np.mean(audio_data)
+                        dc_offset_r = np.mean(audio_data[:, 1]) if audio_data.ndim == 2 and audio_data.shape[1] > 1 else 0
+                        audio_data = self._remove_dc_offset(audio_data)
+                        print(f"  - Removed DC offset (L: {dc_offset_l:.6f}, R: {dc_offset_r:.6f})")
+
+                # Check peak level BEFORE gain
+                peak_before = np.abs(audio_data).max()
+                peak_db_before = 20 * np.log10(peak_before) if peak_before > 0 else -200
 
                 # Trim silence
                 if operations.get('trim_silence'):
@@ -91,6 +103,20 @@ class PostProcessor:
                 if operations.get('sample_normalize') and not operations.get('patch_normalize'):
                     audio_data = self._normalize_audio(audio_data)
                     print("  - Normalized sample")
+
+                # Gain boost (dB) - applied AFTER DC offset removal
+                gain_db = operations.get('gain_db', 0.0)
+                if gain_db != 0.0:
+                    gain_linear = 10 ** (gain_db / 20.0)
+                    audio_data = audio_data * gain_linear
+                    
+                    # Check peak level AFTER gain
+                    peak_after = np.abs(audio_data).max()
+                    peak_db_after = 20 * np.log10(peak_after) if peak_after > 0 else -200
+                    clipped = peak_after > 1.0
+                    
+                    print(f"  - Applied gain: {gain_db:+.1f}dB (linear: {gain_linear:.3f}x)")
+                    print(f"    Peak before: {peak_db_before:.1f}dB ({peak_before:.3f}), after: {peak_db_after:.1f}dB ({peak_after:.3f}) {'[CLIPPED!]' if clipped else '[OK]'}")
 
                 # Auto-looping
                 if operations.get('auto_loop'):

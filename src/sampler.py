@@ -140,6 +140,9 @@ class AutoSampler:
 
         # Processing settings
         self.patch_normalize = self.audio_config.get('patch_normalize', False)
+        
+        # Enable real-time monitoring during sampling
+        self.enable_monitoring = self.audio_config.get('enable_monitoring', False)
 
         # Output settings (delegate to FileManager, but keep for backward compatibility)
         self.base_output_folder = self.file_manager.base_output_folder
@@ -274,7 +277,8 @@ class AutoSampler:
             input_device=self.audio_engine.input_device,
             test_mode=self.test_mode,
             velocity_minimum=self.velocity_minimum,
-            velocity_layers_split=self.velocity_layers_split
+            velocity_layers_split=self.velocity_layers_split,
+            enable_monitoring=self.enable_monitoring
         )
 
         # Initialize patch iterator
@@ -328,6 +332,7 @@ class AutoSampler:
         """Record audio using AudioEngine.
 
         This method delegates to the AudioEngine component.
+        Uses real-time monitoring if enabled in configuration.
 
         Args:
             duration: Recording duration in seconds
@@ -335,7 +340,12 @@ class AutoSampler:
         Returns:
             NumPy array of recorded audio samples, or None if recording failed
         """
-        return self.audio_engine.record(duration)
+        if self.enable_monitoring:
+            logging.debug(f"Recording with monitoring enabled (duration={duration}s)")
+            return self.audio_engine.record_with_monitoring(duration)
+        else:
+            logging.debug(f"Recording without monitoring (duration={duration}s)")
+            return self.audio_engine.record(duration)
 
     def sample_noise_floor(self, duration: float = 2.0) -> float:
         """
@@ -747,6 +757,10 @@ class AutoSampler:
         # Start display
         display.start()
         
+        # Pass display to sample processor if monitoring is enabled
+        if self.enable_monitoring:
+            self.sample_processor.set_sampling_display(display)
+        
         # Disable console logging during display to prevent interference
         if console_handler:
             console_handler.setLevel(logging.CRITICAL + 1)  # Disable console output
@@ -1026,17 +1040,20 @@ class AutoSampler:
     def _apply_postprocessing(self, sample_list: List[Dict], postprocessing_config: Dict) -> None:
         """
         Apply postprocessing operations to recorded samples.
+        
+        This runs AFTER all sampling is complete for the patch.
 
         Args:
             sample_list: List of sample metadata dictionaries
             postprocessing_config: Postprocessing configuration from YAML
         """
-        from src.postprocess import PostProcessor
+        from src.postprocess.processor import PostProcessor
 
         # Check if any postprocessing is enabled
         has_operations = any([
             postprocessing_config.get('patch_normalize'),
             postprocessing_config.get('sample_normalize'),
+            postprocessing_config.get('gain_db', 0.0) != 0.0,
             postprocessing_config.get('trim_silence'),
             postprocessing_config.get('auto_loop'),
             postprocessing_config.get('dc_offset_removal'),
@@ -1044,11 +1061,8 @@ class AutoSampler:
         ])
 
         if not has_operations:
+            logging.info("No postprocessing operations enabled")
             return
-
-        print("\n" + "="*70)
-        print("POST-PROCESSING")
-        print("="*70)
 
         # Collect sample file paths
         sample_paths = []
@@ -1063,45 +1077,20 @@ class AutoSampler:
 
         # Build operations dictionary
         operations = {
+            'gain_db': postprocessing_config.get('gain_db', 0.0),
             'patch_normalize': postprocessing_config.get('patch_normalize', False),
             'sample_normalize': postprocessing_config.get('sample_normalize', False),
             'trim_silence': postprocessing_config.get('trim_silence', False),
             'silence_threshold': getattr(self, 'detected_noise_threshold', postprocessing_config.get('silence_threshold', -60.0)),
-            'auto_loop': postprocessing_config.get('auto_loop', False),
-            'loop_strategy': postprocessing_config.get('loop_strategy', 'sustain'),
-            'loop_min_duration': postprocessing_config.get('loop_min_duration', '50%'),
-            'loop_start_time': postprocessing_config.get('loop_start_time'),
-            'loop_end_time': postprocessing_config.get('loop_end_time'),
-            'loop_quality_threshold': postprocessing_config.get('loop_quality_threshold', 0.7),
-            'skip_attack_auto': postprocessing_config.get('skip_attack_auto', True),
-            'loop_end_margin': postprocessing_config.get('loop_end_margin', 0.1),
             'dc_offset_removal': postprocessing_config.get('dc_offset_removal', False),
+            'auto_loop': postprocessing_config.get('auto_loop', False),
             'convert_bitdepth': postprocessing_config.get('convert_bitdepth'),
-            'dither': postprocessing_config.get('dither', False),
-            'backup': postprocessing_config.get('backup', False)
+            'dither': postprocessing_config.get('dither', False)
         }
 
-        # Show operations that will be applied
-        enabled_ops = [k for k, v in operations.items() if v and k not in ['silence_threshold', 'loop_strategy', 'loop_min_duration', 'loop_start_time', 'loop_end_time', 'loop_quality_threshold', 'skip_attack_auto', 'loop_end_margin', 'dither', 'backup']]
-        if enabled_ops:
-            print(f"Operations: {', '.join(enabled_ops)}")
-        print(f"Processing {len(sample_paths)} samples...")
-        print("="*70)
-
-        # Process samples with real-time progress display
+        # Run postprocessing (completely isolated from sampling)
         processor = PostProcessor()
-        for idx, sample_path in enumerate(sample_paths, 1):
-            # Show progress
-            filename = Path(sample_path).name
-            print(f"\n[{idx}/{len(sample_paths)}] {filename}")
-            sys.stdout.flush()
-            
-            # Process single sample
-            processor.process_samples([sample_path], operations)
-
-        print("\n" + "="*70)
-        print("POST-PROCESSING COMPLETE")
-        print("="*70 + "\n")
+        processor.process_patch(sample_paths, operations)
 
     def _export_formats(self, export_config: Dict) -> None:
         """
@@ -1198,6 +1187,18 @@ class AutoSampler:
         if self.midi_output_port:
             self.midi_output_port.close()
             logging.debug("MIDI output port closed")
+            
+        # Cleanup audio engine to release ASIO devices
+        if hasattr(self.audio_engine, 'cleanup'):
+            self.audio_engine.cleanup()
+        else:
+            # Fallback for older AudioEngine versions
+            try:
+                import sounddevice as sd
+                sd.stop()
+                logging.debug("Audio operations stopped")
+            except Exception as e:
+                logging.warning(f"Failed to stop audio operations: {e}")
 
     def check_output_folder(self) -> bool:
         """
@@ -1477,11 +1478,17 @@ class AutoSampler:
             print("Check your audio levels before sampling. Optimal: -6dB to -3dB (yellow/red zone)")
             print()
             
+            # Get monitor device/channel info from audio engine
+            monitor_channel_offset = getattr(self.audio_engine, 'monitor_channel_offset', channel_offset)
+            output_device = getattr(self.audio_engine, 'output_device', device_index)
+            
             proceed = show_pre_sampling_monitor(
                 device_index=device_index,
                 sample_rate=sample_rate,
                 channels=channels,
                 channel_offset=channel_offset,
+                monitor_channel_offset=monitor_channel_offset,
+                output_device_index=output_device,
                 title="Pre-Sampling Audio Monitor"
             )
             

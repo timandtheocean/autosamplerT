@@ -4,6 +4,10 @@ Sample Processor for AutosamplerT.
 Handles core sampling logic including note recording and velocity calculations.
 """
 
+import os
+# Enable ASIO support in sounddevice (must be set before importing sounddevice)
+os.environ["SD_ENABLE_ASIO"] = "1"
+
 import logging
 import time
 import threading
@@ -33,7 +37,7 @@ class SampleProcessor:
     def __init__(self, midi_note_engine, audio_engine, hold_time: float,
                  release_time: float, pause_time: float, input_device=None,
                  test_mode: bool = False, velocity_minimum: int = 1,
-                 velocity_layers_split=None):
+                 velocity_layers_split=None, enable_monitoring: bool = False):
         """
         Initialize sample processor.
 
@@ -47,6 +51,7 @@ class SampleProcessor:
             test_mode: If True, skip actual recording
             velocity_minimum: Minimum velocity value for layer 0
             velocity_layers_split: Custom velocity split points or None
+            enable_monitoring: If True, use duplex monitoring during recording
         """
         self.midi_note_engine = midi_note_engine
         self.audio_engine = audio_engine
@@ -57,6 +62,12 @@ class SampleProcessor:
         self.test_mode = test_mode
         self.velocity_minimum = velocity_minimum
         self.velocity_layers_split = velocity_layers_split
+        self.enable_monitoring = enable_monitoring
+        self.sampling_display = None  # Will be set from sampler if monitoring is enabled
+
+    def set_sampling_display(self, display):
+        """Set the sampling display object for monitoring updates."""
+        self.sampling_display = display
 
     def calculate_velocity_value(self, layer: int, total_layers: int) -> int:
         """
@@ -162,7 +173,16 @@ class SampleProcessor:
         audio_result = [None]
 
         def record_thread() -> None:
-            audio_result[0] = self.audio_engine.record(total_duration)
+            if self.enable_monitoring:
+                # Create callback to update display
+                def monitor_callback(monitor_dict):
+                    if self.sampling_display:
+                        self.sampling_display.update_monitoring(monitor_dict)
+                
+                audio_result[0] = self.audio_engine.record_with_monitoring(
+                    total_duration, monitor_callback=monitor_callback)
+            else:
+                audio_result[0] = self.audio_engine.record(total_duration)
             recording_complete.set()
 
         if not self.test_mode:
@@ -171,7 +191,10 @@ class SampleProcessor:
                 logging.debug("ASIO detected - recording in main thread")
 
                 # Record the full duration in main thread (ASIO requirement)
-                audio = self.audio_engine.record(total_duration)
+                if self.enable_monitoring:
+                    audio = self.audio_engine.record_with_monitoring(total_duration)
+                else:
+                    audio = self.audio_engine.record(total_duration)
 
                 # Send note-off after recording completes (note was already released)
                 # This is OK because we record the full duration anyway
@@ -195,7 +218,10 @@ class SampleProcessor:
                 audio = audio_result[0]
         else:
             # Test mode: just record without MIDI timing
-            audio = self.audio_engine.record(total_duration)
+            if self.enable_monitoring:
+                audio = self.audio_engine.record_with_monitoring(total_duration)
+            else:
+                audio = self.audio_engine.record(total_duration)
 
         if audio is None:
             logging.error("Audio recording returned None")
@@ -205,7 +231,5 @@ class SampleProcessor:
         # This ensures we capture the full recording duration and any clicks at the end
         # are visible for debugging
 
-        # Normalize individual sample (optional)
-        audio_processed = self.audio_engine.normalize(audio)
-
-        return audio_processed
+        # Return audio directly without processing - postprocessing will handle gain/normalization
+        return audio

@@ -2,8 +2,11 @@ audio_interface:
   bitdepth: 24
   input_channels: 3-4
   input_device_index: 16
+  monitor_channels: 3-4
   output_device_index: 16
   samplerate: 44100
+  enable_monitoring: false
+  blocksize: 32  # Buffer size in samples (128, 256, 512, 1024, 2048). Larger = more stable
 midi_interface:
   midi_input_name: Prophet 6 0
   midi_input_valid: true

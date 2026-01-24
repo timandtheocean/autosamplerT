@@ -1,0 +1,45 @@
+# Test config for wavetable duration fix
+# Tests that wavetable recording captures the full sweep duration
+#
+# Expected duration calculation:
+#   total_samples = samples_per_waveform * number_of_waves
+#   duration = total_samples / samplerate
+#   
+# With these settings: 2048 * 64 / 44100 = 2.97 seconds
+# With hold_time_before (0.5s) + hold_time_after (0.5s) = recording ~4 seconds
+# Final wavetable after trim: exactly 131,072 samples (2.97s)
+
+# Audio interface settings
+audio_interface:
+  samplerate: 44100
+  input_device: null  # Will use default or config device
+  enable_monitoring: true  # Test monitoring during wavetable recording
+
+# Wavetable settings
+wavetable:
+  samples_per_waveform: 2048
+  number_of_waves: 64
+  bit_depth: 24
+  
+  # Buffer time before/after sweep
+  hold_time_before: 0.5
+  hold_time_after: 0.5
+  
+  # Output settings
+  output_folder: "./output/wavetables/test_duration"
+  name_prefix: "test_wt"
+
+# MIDI interface (adjust for your setup)
+midi_interface:
+  output_port_name: null  # Will use default or config port
+  input_port_name: null
+
+# MIDI control for sweep (example - adjust for your synth)
+# This sweeps a filter cutoff or oscillator parameter
+midi_control:
+  control_type: "cc"
+  cc_number: 74  # Common filter cutoff CC
+  # Or for NRPN:
+  # control_type: "nrpn"
+  # nrpn_parameter: 3
+  # manual_range: [0, 254]
